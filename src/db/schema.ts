@@ -5,8 +5,15 @@ export const users = sqliteTable('users', {
   username: text('username').notNull().unique(),
   password_hash: text('password_hash').notNull(),
   full_name: text('full_name'),
+  quote_refresh_interval: text('quote_refresh_interval', {
+    enum: ['hourly', 'daily', 'always'],
+  })
+    .notNull()
+    .default('hourly'),
+  quote_category: text('quote_category').notNull().default('inspirational'),
   created_at: integer('created_at').notNull(),
 });
+
 
 export const projects = sqliteTable('projects', {
   id: text('id').primaryKey(),
@@ -45,6 +52,9 @@ export const problems = sqliteTable('problems', {
     .notNull()
     .references(() => outlines.id, { onDelete: 'cascade' }),
   exercise_id: text('exercise_id'),
+  // 'example' = standalone worked example tied to a concept
+  // 'exercise' = question inside an exercise set
+  problem_kind: text('problem_kind', { enum: ['example', 'exercise'] }).notNull().default('example'),
   problem_statement: text('problem_statement').notNull(),
   solution_guide: text('solution_guide').notNull(),
   problem_type: text('problem_type', {
@@ -86,6 +96,7 @@ export const exercise_sets = sqliteTable('exercise_sets', {
   title: text('title').notNull(),
   description: text('description').notNull().default(''),
   passing_grade: integer('passing_grade').notNull().default(70),
+  is_timed: integer('is_timed').notNull().default(1),
   is_deleted: integer('is_deleted').notNull().default(0),
   created_at: integer('created_at').notNull(),
 });

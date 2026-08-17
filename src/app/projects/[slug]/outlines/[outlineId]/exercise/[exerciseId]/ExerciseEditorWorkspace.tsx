@@ -8,6 +8,7 @@ import {
   deleteProblemAction,
   importProblemSetListAction,
 } from '@/app/actions/problems';
+import { updateExerciseSetAction } from '@/app/actions/exercise';
 import { MathRenderer } from '@/components/MathRenderer';
 import { GeminiOCRModal } from '../../GeminiOCRModal';
 import { ConfirmModal } from '@/components/ConfirmModal';
@@ -29,6 +30,10 @@ import {
   CheckSquare,
   Square,
   Layers,
+  Award,
+  Clock,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 interface ExerciseEditorWorkspaceProps {
@@ -39,6 +44,9 @@ interface ExerciseEditorWorkspaceProps {
   subchapterCode: string;
   subchapterTitle: string;
   exerciseTitle: string;
+  exerciseDescription: string;
+  passingGrade: number;
+  isTimed: boolean;
   initialProblems: any[];
 }
 
@@ -49,10 +57,34 @@ export const ExerciseEditorWorkspace: React.FC<ExerciseEditorWorkspaceProps> = (
   projectTitle,
   subchapterCode,
   subchapterTitle,
-  exerciseTitle,
+  exerciseTitle: initialExerciseTitle,
+  exerciseDescription: initialExerciseDescription,
+  passingGrade: initialPassingGrade,
+  isTimed: initialIsTimed,
   initialProblems,
 }) => {
   const { toast } = useToast();
+
+  // Exercise metadata (editable)
+  const [metaTitle, setMetaTitle] = useState(initialExerciseTitle);
+  const [metaDescription, setMetaDescription] = useState(initialExerciseDescription);
+  const [metaPassingGrade, setMetaPassingGrade] = useState(initialPassingGrade);
+  const [metaIsTimed, setMetaIsTimed] = useState(initialIsTimed);
+  const [isSavingMeta, setIsSavingMeta] = useState(false);
+  const [metaExpanded, setMetaExpanded] = useState(false);
+
+  const handleSaveMeta = async () => {
+    setIsSavingMeta(true);
+    const res = await updateExerciseSetAction(exerciseId, {
+      title: metaTitle,
+      description: metaDescription,
+      passing_grade: metaPassingGrade,
+      is_timed: metaIsTimed,
+    });
+    setIsSavingMeta(false);
+    if (res.error) toast('Save Failed', res.error, 'error');
+    else toast('Saved', 'Exercise settings updated.', 'success');
+  };
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [statement, setStatement] = useState('');
@@ -167,7 +199,7 @@ export const ExerciseEditorWorkspace: React.FC<ExerciseEditorWorkspaceProps> = (
 
   const handleGenerateProblemAI = async (parsedProblems: any[]) => {
     setIsPending(true);
-    const res = await importProblemSetListAction(outlineId, parsedProblems, exerciseId);
+    const res = await importProblemSetListAction(outlineId, parsedProblems, exerciseId, 'exercise');
     setIsPending(false);
 
     if (res.error) {
@@ -230,7 +262,8 @@ export const ExerciseEditorWorkspace: React.FC<ExerciseEditorWorkspaceProps> = (
         firstIndex,
         difficulty,
         correctOptionIndices,
-        exerciseId
+        exerciseId,
+        'exercise'
       );
       setIsPending(false);
 
@@ -278,26 +311,104 @@ export const ExerciseEditorWorkspace: React.FC<ExerciseEditorWorkspaceProps> = (
             </div>
             <h1 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
               <Layers className="w-5 h-5 text-indigo-600" />
-              <span>{exerciseTitle} ({initialProblems.length} Problems)</span>
+              <span>{metaTitle} ({initialProblems.length} Problems)</span>
             </h1>
           </div>
         </div>
 
-        {/* Action Buttons: Add A Problem & Generate Problem (Gemini AI) */}
-        <div className="flex flex-wrap items-center gap-3">
-          <GeminiOCRModal
-            onBulkImport={handleGenerateProblemAI}
-            label="Generate Problem (Gemini AI)"
-          />
+        {/* Expand meta editing */}
+        <button
+          type="button"
+          onClick={() => setMetaExpanded((v) => !v)}
+          className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
+        >
+          <Edit3 className="w-3.5 h-3.5" />
+          <span>{metaExpanded ? 'Close Settings' : 'Edit Settings'}</span>
+          {metaExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+        </button>
+      </div>
 
+      {/* Collapsible Meta Editor */}
+      {metaExpanded && (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-m3-1 space-y-5 animate-in fade-in duration-200">
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+            <Edit3 className="w-3.5 h-3.5" /> Exercise Settings
+          </div>
+          <div className="space-y-4">
+            {/* Title */}
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Exercise Title</label>
+              <input
+                value={metaTitle}
+                onChange={(e) => setMetaTitle(e.target.value)}
+                className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                placeholder="Exercise title…"
+              />
+            </div>
+            {/* Description */}
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">Description (optional)</label>
+              <textarea
+                value={metaDescription}
+                onChange={(e) => setMetaDescription(e.target.value)}
+                rows={2}
+                className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 resize-none"
+                placeholder="Brief instructions or context…"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {/* Passing Grade */}
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1 flex items-center gap-1">
+                  <Award className="w-3 h-3" /> Passing Grade: {metaPassingGrade}%
+                </label>
+                <input
+                  type="range" min={0} max={100} step={5}
+                  value={metaPassingGrade}
+                  onChange={(e) => setMetaPassingGrade(Number(e.target.value))}
+                  className="w-full h-2 accent-violet-600"
+                />
+              </div>
+              {/* Timer toggle */}
+              <div className="flex items-center gap-3 pt-4">
+                <Clock className="w-4 h-4 text-slate-500" />
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">{metaIsTimed ? 'Timed' : 'Untimed'}</span>
+                <button
+                  type="button"
+                  onClick={() => setMetaIsTimed((v) => !v)}
+                  className={`relative w-10 h-5 rounded-full transition-all ${ metaIsTimed ? 'bg-violet-600' : 'bg-slate-300 dark:bg-slate-600'}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${ metaIsTimed ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
+              </div>
+            </div>
+          </div>
           <button
-            onClick={handleOpenNew}
-            className="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/30 flex items-center gap-2 transition-all m3-ripple"
+            type="button"
+            onClick={handleSaveMeta}
+            disabled={isSavingMeta}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition-all disabled:opacity-50"
           >
-            <Plus className="w-4 h-4" />
-            <span>Add A Problem</span>
+            {isSavingMeta ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+            <span>{isSavingMeta ? 'Saving…' : 'Save Settings'}</span>
           </button>
         </div>
+      )}
+
+      {/* Action Bar */}
+      <div className="flex flex-wrap items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl px-6 py-4 shadow-m3-1">
+        <GeminiOCRModal
+          onBulkImport={handleGenerateProblemAI}
+          label="Generate Problem (Gemini AI)"
+        />
+
+        <button
+          onClick={handleOpenNew}
+          className="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/30 flex items-center gap-2 transition-all m3-ripple"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Add A Problem</span>
+        </button>
       </div>
 
       {/* Question Builder Drawer Form */}

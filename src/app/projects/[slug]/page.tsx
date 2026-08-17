@@ -1,6 +1,6 @@
 import React from 'react';
 import { db } from '@/db';
-import { projects, outlines, problems, problem_attempts } from '@/db/schema';
+import { projects, outlines, problems, problem_attempts, exercise_sets } from '@/db/schema';
 import { eq, and, asc } from 'drizzle-orm';
 import { Navbar } from '@/components/Navbar';
 import { getCurrentUser } from '@/lib/auth';
@@ -110,8 +110,10 @@ export default async function ProjectDetailPage(props: ProjectPageProps) {
     };
   });
 
-  // 3. Fetch Problems under Active Subchapter
-  let activeProblems: any[] = [];
+  // 3. Fetch Problems (examples only) + Exercise Sets under Active Subchapter
+  let activeExamples: any[] = [];
+  let activeExerciseSets: any[] = [];
+
   if (activeSubchapter) {
     const rawProblems = db
       .select()
@@ -119,7 +121,11 @@ export default async function ProjectDetailPage(props: ProjectPageProps) {
       .where(and(eq(problems.outline_id, activeSubchapter.id), eq(problems.is_deleted, 0)))
       .all();
 
-    activeProblems = rawProblems.map((prob) => {
+    // Split: examples are standalone worked problems, exercises belong to a set
+    const exampleRaw = rawProblems.filter((p) => p.problem_kind === 'example' || (!p.exercise_id && p.problem_kind !== 'exercise'));
+    const exerciseRaw = rawProblems.filter((p) => p.problem_kind === 'exercise' && p.exercise_id);
+
+    activeExamples = exampleRaw.map((prob) => {
       const attempts = db
         .select()
         .from(problem_attempts)
@@ -129,22 +135,31 @@ export default async function ProjectDetailPage(props: ProjectPageProps) {
       let status: 'not_attempted' | 'solved' | 'surrendered' = 'not_attempted';
       const cleanSolve = attempts.find((a) => a.outcome === 'clean_solve');
       const surrendered = attempts.find((a) => a.outcome === 'surrendered');
+      if (cleanSolve) status = 'solved';
+      else if (surrendered) status = 'surrendered';
 
-      if (cleanSolve) {
-        status = 'solved';
-      } else if (surrendered) {
-        status = 'surrendered';
-      } else if (attempts.length > 0) {
-        status = 'not_attempted';
-      }
+      return { ...prob, attemptsCount: attempts.length, status };
+    });
+
+    // Fetch exercise_sets for this subchapter with their question counts
+    const rawSets = db
+      .select()
+      .from(exercise_sets)
+      .where(and(eq(exercise_sets.outline_id, activeSubchapter.id), eq(exercise_sets.is_deleted, 0)))
+      .all();
+
+    activeExerciseSets = rawSets.map((exSet) => {
+      const setProblems = exerciseRaw.filter((p) => p.exercise_id === exSet.id);
+      const mcqCount = setProblems.filter((p) => p.problem_type === 'multiple_choice').length;
+      const essayCount = setProblems.filter((p) => p.problem_type === 'essay').length;
+      const otherCount = setProblems.length - mcqCount - essayCount;
 
       return {
-        ...prob,
-        attemptsCount: attempts.length,
-        status,
-        bestTime: attempts.length > 0
-          ? Math.min(...attempts.map((a) => a.time_spent_seconds))
-          : null,
+        ...exSet,
+        questionCount: setProblems.length,
+        mcqCount,
+        essayCount,
+        otherCount,
       };
     });
   }
@@ -263,11 +278,12 @@ export default async function ProjectDetailPage(props: ProjectPageProps) {
                 </div>
               </div>
 
-              {/* Drag and Drop Modular Grid (Concepts & Problem Set Modules) */}
+              {/* Drag and Drop Modular Grid (Concepts, Examples & Exercises) */}
               <SubchapterModulesGrid
                 activeSubchapter={activeSubchapter}
                 slug={project.slug}
-                activeProblems={activeProblems}
+                activeExamples={activeExamples}
+                activeExerciseSets={activeExerciseSets}
               />
             </>
           ) : (

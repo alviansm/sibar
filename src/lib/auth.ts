@@ -52,11 +52,14 @@ export async function getCurrentUser() {
       id: users.id,
       username: users.username,
       fullName: users.full_name,
+      quoteRefreshInterval: users.quote_refresh_interval,
+      quoteCategory: users.quote_category,
       createdAt: users.created_at,
     })
     .from(users)
     .where(eq(users.id, session.userId))
     .get();
+
 
   return user || null;
 }

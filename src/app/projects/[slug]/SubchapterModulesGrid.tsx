@@ -7,7 +7,6 @@ import {
   BookOpen,
   FileCode,
   Play,
-  ArrowRight,
   CheckCircle2,
   XCircle,
   HelpCircle,
@@ -19,6 +18,13 @@ import {
   ChevronUp,
   Sparkles,
   Lightbulb,
+  Layers,
+  Eye,
+  EyeOff,
+  Edit3,
+  Award,
+  Clock,
+  RotateCcw,
 } from 'lucide-react';
 import { MathRenderer } from '@/components/MathRenderer';
 import { LottieEmptyState } from '@/components/LottieEmptyState';
@@ -27,7 +33,7 @@ import { useToast } from '@/components/Toast';
 
 export interface CardItem {
   id: string;
-  type: 'concept' | 'problem';
+  type: 'concept' | 'example' | 'exercise';
   title: string;
   subtitle?: string;
   content: string;
@@ -38,24 +44,30 @@ export interface CardItem {
 interface SubchapterModulesGridProps {
   activeSubchapter: any;
   slug: string;
-  activeProblems: any[];
+  activeExamples: any[];
+  activeExerciseSets: any[];
 }
 
 export const SubchapterModulesGrid: React.FC<SubchapterModulesGridProps> = ({
   activeSubchapter,
   slug,
-  activeProblems,
+  activeExamples,
+  activeExerciseSets,
 }) => {
   const { toast } = useToast();
-  const [filterMode, setFilterMode] = useState<'all' | 'concepts' | 'problems'>('all');
+  const [filterMode, setFilterMode] = useState<'all' | 'concepts' | 'examples' | 'exercises'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedSolutions, setExpandedSolutions] = useState<Record<string, boolean>>({});
+  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
+  const [revealedSolutions, setRevealedSolutions] = useState<Record<string, boolean>>({});
 
+  const toggleExpand = (id: string) => {
+    setExpandedCards((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
   const toggleSolution = (id: string) => {
-    setExpandedSolutions((prev) => ({ ...prev, [id]: !prev[id] }));
+    setRevealedSolutions((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  // 1. Parse Concept Cards
+  // 1. Concept Cards
   const conceptItems: CardItem[] = React.useMemo(() => {
     let list: any[] = [];
     if (activeSubchapter?.concepts_json) {
@@ -64,7 +76,6 @@ export const SubchapterModulesGrid: React.FC<SubchapterModulesGridProps> = ({
         if (Array.isArray(parsed)) list = parsed.filter((item: any) => !item.is_deleted);
       } catch (e) {}
     }
-
     return list.map((item, idx) => ({
       id: item.id || `concept-${idx}`,
       type: 'concept' as const,
@@ -75,39 +86,39 @@ export const SubchapterModulesGrid: React.FC<SubchapterModulesGridProps> = ({
     }));
   }, [activeSubchapter]);
 
-  // 2. Parse Problem Cards
-  const problemItems: CardItem[] = React.useMemo(() => {
-    return activeProblems.map((prob, idx) => {
-      let status: 'not_attempted' | 'solved' | 'surrendered' = 'not_attempted';
-      let statusLabel = 'Not Attempted';
+  // 2. Example Cards
+  const exampleItems: CardItem[] = React.useMemo(() => {
+    return activeExamples.map((prob, idx) => ({
+      id: prob.id,
+      type: 'example' as const,
+      title: `Example #${idx + 1}: ${prob.problem_type.replace('_', ' ').toUpperCase()}`,
+      subtitle: `Difficulty ${prob.difficulty}/5`,
+      content: prob.problem_statement,
+      status: prob.status || 'not_attempted',
+      originalData: prob,
+    }));
+  }, [activeExamples]);
 
-      if (prob.status === 'solved') {
-        status = 'solved';
-        statusLabel = 'Solved Clean';
-      } else if (prob.status === 'surrendered') {
-        status = 'surrendered';
-        statusLabel = 'Incorrect Answer';
-      }
+  // 3. Exercise Cards (one card per set)
+  const exerciseItems: CardItem[] = React.useMemo(() => {
+    return activeExerciseSets.map((exSet) => ({
+      id: exSet.id,
+      type: 'exercise' as const,
+      title: exSet.title,
+      subtitle: `${exSet.questionCount} Questions · Passing: ${exSet.passing_grade}%`,
+      content: exSet.description || '',
+      status: 'not_attempted' as const,
+      originalData: exSet,
+    }));
+  }, [activeExerciseSets]);
 
-      return {
-        id: prob.id,
-        type: 'problem' as const,
-        title: `Problem #${idx + 1}: ${prob.problem_type.replace('_', ' ').toUpperCase()}`,
-        subtitle: `Difficulty ${prob.difficulty}/5 • ${statusLabel}`,
-        content: prob.problem_statement,
-        status,
-        originalData: prob,
-      };
-    });
-  }, [activeProblems]);
-
-  // 3. Combine & Sort Cards
+  // Combined & ordered
   const STORAGE_KEY = `sibar_card_order_${activeSubchapter.id}`;
   const [allCards, setAllCards] = useState<CardItem[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   useEffect(() => {
-    const combined = [...conceptItems, ...problemItems];
+    const combined = [...conceptItems, ...exampleItems, ...exerciseItems];
     try {
       const savedOrder: string[] = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
       if (savedOrder && savedOrder.length > 0) {
@@ -121,11 +132,9 @@ export const SubchapterModulesGrid: React.FC<SubchapterModulesGridProps> = ({
         });
       }
     } catch (e) {}
-
     setAllCards(combined);
-  }, [conceptItems, problemItems, STORAGE_KEY]);
+  }, [conceptItems, exampleItems, exerciseItems, STORAGE_KEY]);
 
-  // Handle concept completion toggle
   const handleToggleConceptStatus = async (conceptId: string) => {
     const res = await toggleConceptStatusAction(activeSubchapter.id, conceptId);
     if (res.error) {
@@ -134,107 +143,112 @@ export const SubchapterModulesGrid: React.FC<SubchapterModulesGridProps> = ({
       const isCompleted = res.newStatus === 'completed';
       toast(
         isCompleted ? 'Marked as Completed' : 'Marked as Unread',
-        isCompleted ? 'Progress ring updated in syllabus taxonomy.' : 'Concept reset to unread.',
+        isCompleted ? 'Progress ring updated.' : 'Concept reset to unread.',
         isCompleted ? 'success' : 'info'
       );
     }
   };
 
-  // Filter Cards
+  // Filter
   const filteredCards = allCards.filter((card) => {
     if (filterMode === 'concepts' && card.type !== 'concept') return false;
-    if (filterMode === 'problems' && card.type !== 'problem') return false;
-
+    if (filterMode === 'examples' && card.type !== 'example') return false;
+    if (filterMode === 'exercises' && card.type !== 'exercise') return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
-      const matchTitle = card.title.toLowerCase().includes(q);
-      const matchContent = card.content.toLowerCase().includes(q);
-      const matchSub = card.subtitle?.toLowerCase().includes(q);
-      return matchTitle || matchContent || matchSub;
+      return (
+        card.title.toLowerCase().includes(q) ||
+        card.content.toLowerCase().includes(q) ||
+        (card.subtitle?.toLowerCase().includes(q) ?? false)
+      );
     }
-
     return true;
   });
 
-  // Drag and Drop
+  // Drag & drop
   const handleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedIndex(index);
     e.dataTransfer.effectAllowed = 'move';
   };
-
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
-
   const handleDrop = (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault();
     if (draggedIndex === null || draggedIndex === dropIndex) return;
-
     const newCards = [...filteredCards];
     const [moved] = newCards.splice(draggedIndex, 1);
     newCards.splice(dropIndex, 0, moved);
-
     setAllCards(newCards);
     setDraggedIndex(null);
-
     try {
-      const orderIds = newCards.map((c) => c.id);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(orderIds));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newCards.map((c) => c.id)));
     } catch (e) {}
   };
 
   return (
     <div className="space-y-6">
-      
-      {/* Control Panel: Filter Tabs & Live Search */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-4 sm:p-6 shadow-m3-1">
-        
-        {/* Filter Chips */}
+      {/* Control Panel */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-4 sm:p-5 shadow-m3-1">
+
+        {/* 4 Filter Tabs */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
           <button
             onClick={() => setFilterMode('all')}
-            className={`px-4 py-2 rounded-2xl text-xs font-semibold transition-all flex items-center gap-2 ${
+            className={`px-3.5 py-2 rounded-2xl text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap ${
               filterMode === 'all'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
             }`}
           >
             <Filter className="w-3.5 h-3.5" />
-            <span>All Items ({allCards.length})</span>
+            <span>All ({allCards.length})</span>
           </button>
 
           <button
             onClick={() => setFilterMode('concepts')}
-            className={`px-4 py-2 rounded-2xl text-xs font-semibold transition-all flex items-center gap-2 ${
+            className={`px-3.5 py-2 rounded-2xl text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap ${
               filterMode === 'concepts'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
-            <span>Concepts &amp; Worked Examples ({conceptItems.length})</span>
+            <span>Concepts ({conceptItems.length})</span>
           </button>
 
           <button
-            onClick={() => setFilterMode('problems')}
-            className={`px-4 py-2 rounded-2xl text-xs font-semibold transition-all flex items-center gap-2 ${
-              filterMode === 'problems'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+            onClick={() => setFilterMode('examples')}
+            className={`px-3.5 py-2 rounded-2xl text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              filterMode === 'examples'
+                ? 'bg-amber-500 text-white shadow-md shadow-amber-500/30'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
             }`}
           >
-            <FileCode className="w-3.5 h-3.5" />
-            <span>Exercises / Problem Sets ({problemItems.length})</span>
+            <Lightbulb className="w-3.5 h-3.5" />
+            <span>Examples ({exampleItems.length})</span>
+          </button>
+
+          <button
+            onClick={() => setFilterMode('exercises')}
+            className={`px-3.5 py-2 rounded-2xl text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+              filterMode === 'exercises'
+                ? 'bg-violet-600 text-white shadow-md shadow-violet-600/30'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Exercises ({exerciseItems.length})</span>
           </button>
         </div>
 
-        {/* Live Search Bar */}
+        {/* Search */}
         <div className="relative max-w-xs w-full">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search formulas, concepts, or exercises..."
+            placeholder="Search formulas, concepts, exercises..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-8 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
@@ -248,25 +262,26 @@ export const SubchapterModulesGrid: React.FC<SubchapterModulesGridProps> = ({
             </button>
           )}
         </div>
-
       </div>
 
       {/* Helper Bar */}
       <div className="flex items-center justify-between text-xs text-slate-400 font-mono px-2">
-        <span>
-          SHOWING {filterMode.toUpperCase()} ({filteredCards.length})
-        </span>
+        <span>SHOWING {filterMode.toUpperCase()} ({filteredCards.length})</span>
         <span>Drag ⋮⋮ to reorder cards</span>
       </div>
 
-      {/* Cards List Grid */}
+      {/* Cards */}
       {filteredCards.length === 0 ? (
         <LottieEmptyState
-          title={searchQuery ? 'No Matching Results' : 'No Items in Category'}
+          title={searchQuery ? 'No Matching Results' : 'Nothing Here Yet'}
           message={
             searchQuery
-              ? `No concept formulas or problem statements matched "${searchQuery}".`
-              : `This subchapter currently has no ${filterMode} items.`
+              ? `No items matched "${searchQuery}".`
+              : filterMode === 'examples'
+              ? 'No example problems yet. Add one via the Problem Builder in the subchapter settings.'
+              : filterMode === 'exercises'
+              ? 'No exercise sets yet. Click "+ Add Exercise Set" to create one.'
+              : `This subchapter has no ${filterMode} items yet.`
           }
         />
       ) : (
@@ -274,10 +289,11 @@ export const SubchapterModulesGrid: React.FC<SubchapterModulesGridProps> = ({
           {filteredCards.map((card, index) => {
             const isDragging = draggedIndex === index;
 
-            // CONCEPT CARD
+            // ── CONCEPT CARD ───────────────────────────────────────────────
             if (card.type === 'concept') {
               const isCompleted = card.status === 'completed';
               const examples = card.originalData?.examples || [];
+              const isExpanded = Boolean(expandedCards[`concept-${card.id}`]);
 
               return (
                 <div
@@ -286,131 +302,77 @@ export const SubchapterModulesGrid: React.FC<SubchapterModulesGridProps> = ({
                   onDragStart={(e) => handleDragStart(e, index)}
                   onDragOver={handleDragOver}
                   onDrop={(e) => handleDrop(e, index)}
-                  className={`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-m3-1 hover:border-indigo-300 dark:hover:border-indigo-800 transition-all space-y-4 group relative ${
+                  className={`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-m3-1 hover:border-indigo-300 dark:hover:border-indigo-800 transition-all space-y-4 ${
                     isDragging ? 'opacity-40 scale-[0.99] border-dashed border-indigo-500' : ''
                   }`}
                 >
-                  {/* Concept Top Header */}
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2">
-                      <span
-                        className="cursor-grab active:cursor-grabbing p-1 rounded-lg text-slate-300 hover:text-slate-500 dark:hover:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                        title="Drag to reorder card"
-                      >
+                      <span className="cursor-grab active:cursor-grabbing p-1 rounded-lg text-slate-300 hover:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
                         <GripVertical className="w-4 h-4" />
                       </span>
-                      <div className="relative group/tooltip">
-                        <span
-                          className="p-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800 flex items-center justify-center transition-all duration-200 hover:scale-110 hover:bg-indigo-100 dark:hover:bg-indigo-900 hover:shadow-md hover:shadow-indigo-500/20 cursor-pointer"
-                          title="Concept"
-                        >
-                          <BookOpen className="w-4 h-4" />
-                        </span>
-                        <div className="absolute left-1/2 -top-8 -translate-x-1/2 px-2 py-1 bg-slate-900 text-white text-[10px] font-semibold rounded-md opacity-0 group-hover/tooltip:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap z-10 shadow-md">
-                          Concept
-                        </div>
-                      </div>
-
-                      {/* Status Indicator Chip */}
+                      <span className="p-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800">
+                        <BookOpen className="w-4 h-4" />
+                      </span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-200/40">CONCEPT</span>
                       {isCompleted ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">
                           <CheckCircle2 className="w-3.5 h-3.5" /> Completed
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
                           <HelpCircle className="w-3.5 h-3.5" /> Unread
                         </span>
                       )}
                     </div>
-
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => toggleSolution(`concept-expand-${card.id}`)}
-                        className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
-                      >
-                        {expandedSolutions[`concept-expand-${card.id}`] ? (
-                          <>
-                            <ChevronUp className="w-3.5 h-3.5" />
-                            <span>Collapse Card</span>
-                          </>
-                        ) : (
-                          <>
-                            <ChevronDown className="w-3.5 h-3.5" />
-                            <span>Read &amp; Complete</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => toggleExpand(`concept-${card.id}`)}
+                      className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                    >
+                      {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                      <span>{isExpanded ? 'Collapse' : 'Read & Complete'}</span>
+                    </button>
                   </div>
 
-                  {/* Concept Body */}
-                  <div
-                    className="space-y-3 cursor-pointer select-none"
-                    onClick={() => toggleSolution(`concept-expand-${card.id}`)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200/60 flex-shrink-0 transition-transform duration-200 hover:scale-110 cursor-pointer shadow-xs" title="Concept">
-                        <BookOpen className="w-4 h-4" />
-                      </div>
-                      <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
-                        {card.title}
-                      </h3>
-                    </div>
-
+                  <div className="cursor-pointer" onClick={() => toggleExpand(`concept-${card.id}`)}>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight mb-2">{card.title}</h3>
                     <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 text-xs leading-relaxed text-slate-800 dark:text-slate-200">
                       <MathRenderer content={card.content} />
                     </div>
                   </div>
 
-                  {/* Expanded Concept View: Example Problems + Mark Completed Action Button */}
-                  {expandedSolutions[`concept-expand-${card.id}`] && (
+                  {isExpanded && (
                     <div className="space-y-4 pt-3 border-t border-slate-100 dark:border-slate-800 animate-in fade-in duration-200">
-                      {/* Embedded Concept Example Problems */}
                       {examples.length > 0 && (
                         <div className="space-y-3">
                           <div className="flex items-center gap-2">
-                            <div className="relative group/tooltip">
-                              <span
-                                className="p-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800 flex items-center justify-center transition-all duration-200 hover:scale-110 hover:bg-amber-100 dark:hover:bg-amber-900 hover:shadow-md cursor-pointer"
-                                title="Problem Example"
-                              >
-                                <Lightbulb className="w-4 h-4" />
-                              </span>
-                              <div className="absolute left-1/2 -top-8 -translate-x-1/2 px-2 py-1 bg-slate-900 text-white text-[10px] font-semibold rounded-md opacity-0 group-hover/tooltip:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap z-10 shadow-md">
-                                Problem Example
-                              </div>
-                            </div>
+                            <span className="p-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 border border-amber-200/60">
+                              <Lightbulb className="w-4 h-4" />
+                            </span>
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Worked Examples</span>
                           </div>
                           {examples.map((ex: any, exIdx: number) => {
-                            const isExpanded = expandedSolutions[`${card.id}-ex-${exIdx}`];
+                            const exKey = `${card.id}-ex-${exIdx}`;
+                            const isExExpanded = Boolean(expandedCards[exKey]);
                             return (
-                              <div
-                                key={ex.id || exIdx}
-                                className="p-4 rounded-2xl bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 space-y-3 text-xs"
-                              >
+                              <div key={ex.id || exIdx} className="p-4 rounded-2xl bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 space-y-3 text-xs">
                                 <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                                  <span className="font-mono text-amber-600 dark:text-amber-400 font-semibold">#{exIdx + 1}</span>
+                                  <span className="font-mono text-amber-600">#{exIdx + 1}</span>
                                   {ex.title && <span>{ex.title}</span>}
                                 </div>
                                 <MathRenderer content={ex.statement || ex.problem_statement} />
-
                                 <div>
                                   <button
-                                    onClick={() => toggleSolution(`${card.id}-ex-${exIdx}`)}
+                                    onClick={() => toggleExpand(exKey)}
                                     className="text-xs font-semibold text-amber-700 dark:text-amber-400 hover:underline flex items-center gap-1"
                                   >
-                                    {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                                    <span>{isExpanded ? 'Hide Solution Steps' : 'View Solution Hint & Steps'}</span>
+                                    {isExExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                                    <span>{isExExpanded ? 'Hide Solution' : 'Show Solution Steps'}</span>
                                   </button>
-
-                                  {isExpanded && (
-                                    <div className="mt-3 p-3 rounded-xl bg-white dark:bg-slate-900 border border-amber-200/80 dark:border-amber-900/60 space-y-2 animate-in fade-in duration-150">
-                                      {ex.hint && (
-                                        <div className="text-[11px] font-medium text-amber-700 dark:text-amber-300">
-                                          <span className="font-bold uppercase tracking-wider">Hint:</span> {ex.hint}
-                                        </div>
-                                      )}
-                                      <MathRenderer content={ex.solution || ex.solution_guide || 'Solution steps.'} />
+                                  {isExExpanded && (
+                                    <div className="mt-3 p-3 rounded-xl bg-white dark:bg-slate-900 border border-amber-200/80 animate-in fade-in duration-150">
+                                      {ex.hint && <div className="text-[11px] font-medium text-amber-700 mb-2"><strong>Hint:</strong> {ex.hint}</div>}
+                                      <MathRenderer content={ex.solution || ex.solution_guide || 'No solution provided.'} />
                                     </div>
                                   )}
                                 </div>
@@ -419,8 +381,6 @@ export const SubchapterModulesGrid: React.FC<SubchapterModulesGridProps> = ({
                           })}
                         </div>
                       )}
-
-                      {/* Completion Button Placement AFTER reading the box */}
                       <div className="flex justify-end pt-2">
                         <button
                           onClick={() => handleToggleConceptStatus(card.id)}
@@ -431,46 +391,31 @@ export const SubchapterModulesGrid: React.FC<SubchapterModulesGridProps> = ({
                           }`}
                         >
                           <Check className="w-4 h-4" />
-                          <span>{isCompleted ? 'Mark Concept as Unread' : 'Mark Concept as Completed'}</span>
+                          <span>{isCompleted ? 'Mark as Unread' : 'Mark as Completed'}</span>
                         </button>
                       </div>
                     </div>
                   )}
-
                 </div>
               );
             }
 
-            // PROBLEM SET CARD
-            if (card.type === 'problem') {
+            // ── EXAMPLE CARD ───────────────────────────────────────────────
+            if (card.type === 'example') {
               const prob = card.originalData;
+              const isExpanded = Boolean(expandedCards[`ex-${card.id}`]);
+              const isSolRevealed = Boolean(revealedSolutions[card.id]);
 
-              let statusBadge = (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
-                  <HelpCircle className="w-3.5 h-3.5" /> Not Attempted
-                </span>
-              );
-
-              if (prob.status === 'solved') {
-                statusBadge = (
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Solved Clean
-                  </span>
-                );
-              } else if (prob.status === 'surrendered') {
-                statusBadge = (
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200">
-                    <XCircle className="w-3.5 h-3.5" /> Incorrect / Surrendered
-                  </span>
-                );
-              }
-
-              let optionsList: string[] = [];
+              let parsedOptions: string[] = [];
               if (prob.options_json) {
-                try {
-                  optionsList = JSON.parse(prob.options_json);
-                } catch (e) {}
+                try { parsedOptions = JSON.parse(prob.options_json); } catch (e) {}
               }
+
+              const statusBadge = prob.status === 'solved'
+                ? <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200"><CheckCircle2 className="w-3.5 h-3.5" /> Solved</span>
+                : prob.status === 'surrendered'
+                ? <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200"><XCircle className="w-3.5 h-3.5" /> Missed</span>
+                : <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200"><HelpCircle className="w-3.5 h-3.5" /> Not Attempted</span>;
 
               return (
                 <div
@@ -479,70 +424,157 @@ export const SubchapterModulesGrid: React.FC<SubchapterModulesGridProps> = ({
                   onDragStart={(e) => handleDragStart(e, index)}
                   onDragOver={handleDragOver}
                   onDrop={(e) => handleDrop(e, index)}
-                  className={`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-m3-1 hover:border-indigo-300 dark:hover:border-indigo-800 transition-all space-y-4 group relative ${
-                    isDragging ? 'opacity-40 scale-[0.99] border-dashed border-indigo-500' : ''
+                  className={`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-m3-1 hover:border-amber-300 dark:hover:border-amber-700 transition-all space-y-4 ${
+                    isDragging ? 'opacity-40 scale-[0.99] border-dashed' : ''
                   }`}
                 >
-                  {/* Card Top Header */}
                   <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="cursor-grab active:cursor-grabbing p-1 rounded-lg text-slate-300 hover:text-slate-500 dark:hover:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                        title="Drag to reorder card"
-                      >
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="cursor-grab active:cursor-grabbing p-1 rounded-lg text-slate-300 hover:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
                         <GripVertical className="w-4 h-4" />
                       </span>
-                      <div className="relative group/tooltip">
-                        <span
-                          className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center justify-center transition-all duration-200 hover:scale-110 hover:bg-slate-200 dark:hover:bg-slate-700 hover:shadow-md cursor-pointer"
-                          title="Exercise"
-                        >
-                          <FileCode className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                        </span>
-                        <div className="absolute left-1/2 -top-8 -translate-x-1/2 px-2 py-1 bg-slate-900 text-white text-[10px] font-semibold rounded-md opacity-0 group-hover/tooltip:opacity-100 transition-opacity duration-150 pointer-events-none whitespace-nowrap z-10 shadow-md">
-                          Exercise
-                        </div>
-                      </div>
-                      <span className="text-xs font-mono uppercase font-bold text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950/60">
+                      <span className="p-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 border border-amber-200/60">
+                        <Lightbulb className="w-4 h-4" />
+                      </span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded border border-amber-200/40">EXAMPLE</span>
+                      <span className="text-xs font-bold uppercase font-mono text-slate-500 px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800">
                         {prob.problem_type.replace('_', ' ')}
                       </span>
                       {statusBadge}
+                      <span className="text-xs text-amber-500 font-bold font-mono">Diff {prob.difficulty}/5</span>
                     </div>
+                    <button
+                      onClick={() => toggleExpand(`ex-${card.id}`)}
+                      className="text-xs font-semibold text-amber-600 hover:underline flex items-center gap-1 flex-shrink-0"
+                    >
+                      {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                      <span>{isExpanded ? 'Collapse' : 'Work Through'}</span>
+                    </button>
+                  </div>
 
-                    <div className="flex items-center gap-3">
-                      <Link
-                        href={`/projects/${slug}/outlines/${activeSubchapter.id}/exercise/${prob.exercise_id || prob.id}/lobby`}
-                        className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm flex items-center gap-1.5 transition-all m3-ripple"
+                  <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200">
+                    <MathRenderer content={card.content} />
+                  </div>
+
+                  {/* MCQ Options (neutral, no spoiler) */}
+                  {parsedOptions.length > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {parsedOptions.map((opt, oIdx) => (
+                        <div key={oIdx} className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 text-xs flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 font-bold text-[10px] flex items-center justify-center flex-shrink-0 font-mono">
+                            {String.fromCharCode(65 + oIdx)}
+                          </span>
+                          <MathRenderer content={opt} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {isExpanded && (
+                    <div className="space-y-4 pt-3 border-t border-slate-100 dark:border-slate-800 animate-in fade-in duration-200">
+                      {/* Anti-spoiler solution toggle */}
+                      <button
+                        type="button"
+                        onClick={() => toggleSolution(card.id)}
+                        className={`w-full py-2.5 px-4 rounded-2xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                          isSolRevealed
+                            ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200 border border-amber-300/60'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-200'
+                        }`}
                       >
-                        <Play className="w-3.5 h-3.5 fill-white" />
-                        <span>Start Exercise</span>
-                      </Link>
-                    </div>
-                  </div>
+                        {isSolRevealed ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        <span>{isSolRevealed ? 'Hide Solution Steps' : 'Reveal Reference Solution'}</span>
+                      </button>
 
-                  {/* Problem Statement */}
-                  <div className="space-y-3">
-                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200">
-                      <MathRenderer content={card.content} />
-                    </div>
-
-                    {/* Multiple Choice Options Preview (Neutral anti-spoiler styling) */}
-                    {optionsList.length > 0 && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                        {optionsList.map((opt, oIdx) => (
-                          <div
-                            key={oIdx}
-                            className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 text-xs flex items-center gap-2"
-                          >
-                            <span className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 font-bold text-[10px] flex items-center justify-center flex-shrink-0 font-mono">
-                              {String.fromCharCode(65 + oIdx)}
-                            </span>
-                            <MathRenderer content={opt} />
+                      {isSolRevealed && (
+                        <div className="p-4 rounded-2xl bg-amber-50/60 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800 space-y-2 animate-in fade-in duration-200">
+                          <div className="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>Reference Solution</span>
                           </div>
-                        ))}
+                          <div className="text-xs text-amber-950 dark:text-amber-200">
+                            <MathRenderer content={prob.solution_guide} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            // ── EXERCISE CARD ──────────────────────────────────────────────
+            if (card.type === 'exercise') {
+              const exSet = card.originalData;
+
+              const countLabel = [
+                exSet.mcqCount > 0 ? `${exSet.mcqCount} MCQ` : null,
+                exSet.essayCount > 0 ? `${exSet.essayCount} Essay` : null,
+                exSet.otherCount > 0 ? `${exSet.otherCount} Other` : null,
+              ].filter(Boolean).join(' · ') || 'No questions yet';
+
+              return (
+                <div
+                  key={card.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, index)}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, index)}
+                  className={`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-m3-1 hover:border-violet-300 dark:hover:border-violet-700 transition-all space-y-4 ${
+                    isDragging ? 'opacity-40 scale-[0.99] border-dashed' : ''
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <span className="cursor-grab active:cursor-grabbing p-1 rounded-lg text-slate-300 hover:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 mt-0.5">
+                        <GripVertical className="w-4 h-4" />
+                      </span>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                          <span className="p-1.5 rounded-xl bg-violet-50 dark:bg-violet-950/60 text-violet-600 border border-violet-200/60">
+                            <Layers className="w-4 h-4" />
+                          </span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/60 px-2 py-0.5 rounded border border-violet-200/40">EXERCISE</span>
+                          <span className="text-[10px] font-mono font-bold text-slate-500 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {exSet.is_timed ? 'Timed' : 'Untimed'}
+                          </span>
+                        </div>
+                        <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">{exSet.title}</h3>
+                        {exSet.description && (
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{exSet.description}</p>
+                        )}
                       </div>
-                    )}
+                    </div>
+                    <Link
+                      href={`/projects/${slug}/outlines/${activeSubchapter.id}/exercise/${exSet.id}`}
+                      className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors flex-shrink-0"
+                      title="Edit exercise"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </Link>
                   </div>
+
+                  {/* Exercise stats row */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 space-y-0.5 text-center">
+                      <div className="text-lg font-black text-slate-900 dark:text-white font-mono">{exSet.questionCount}</div>
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Questions</div>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-800 space-y-0.5 text-center col-span-2">
+                      <div className="text-xs font-bold text-slate-700 dark:text-slate-300 font-mono">{countLabel}</div>
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Pass: {exSet.passing_grade}%</div>
+                    </div>
+                  </div>
+
+                  {/* CTA */}
+                  <Link
+                    href={`/projects/${slug}/outlines/${activeSubchapter.id}/exercise/${exSet.id}/lobby`}
+                    className="w-full py-3 px-4 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 shadow-md shadow-violet-600/30 transition-all m3-ripple"
+                  >
+                    <Play className="w-4 h-4 fill-white" />
+                    <span>{exSet.questionCount === 0 ? 'Add Questions to Start' : 'Start Exercise'}</span>
+                  </Link>
                 </div>
               );
             }

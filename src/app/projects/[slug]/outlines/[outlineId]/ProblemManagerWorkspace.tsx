@@ -9,12 +9,12 @@ import {
   deleteProblemAction,
   importProblemSetListAction,
 } from '@/app/actions/problems';
+import { createExerciseSetAction } from '@/app/actions/exercise';
 import { MathRenderer } from '@/components/MathRenderer';
 import { GeminiOCRModal } from './GeminiOCRModal';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { useToast } from '@/components/Toast';
 import { LottieEmptyState } from '@/components/LottieEmptyState';
-import { cryptoNativeUUID } from '@/lib/utils';
 import {
   Plus,
   Trash2,
@@ -73,6 +73,7 @@ export const ProblemManagerWorkspace: React.FC<ProblemManagerWorkspaceProps> = (
   const [isExerciseModalOpen, setIsExerciseModalOpen] = useState(false);
   const [exerciseModalStep, setExerciseModalStep] = useState<'choice' | 'manual' | 'ai'>('choice');
   const [exerciseTitle, setExerciseTitle] = useState('');
+  const [exerciseDescription, setExerciseDescription] = useState('');
 
   const resetForm = () => {
     setEditingId(null);
@@ -182,16 +183,52 @@ export const ProblemManagerWorkspace: React.FC<ProblemManagerWorkspaceProps> = (
     e.preventDefault();
     if (!exerciseTitle.trim()) return;
 
-    const exerciseId = `ex-${cryptoNativeUUID()}`;
+    setIsPending(true);
+    // Insert the exercise_sets row first so the editor page can load it
+    const res = await createExerciseSetAction(
+      outlineId,
+      exerciseTitle.trim(),
+      exerciseDescription.trim(),
+      70,
+      true
+    );
+    setIsPending(false);
     setIsExerciseModalOpen(false);
+
+    if (res.error) {
+      toast('Creation Failed', res.error, 'error');
+      return;
+    }
+
     toast('Exercise Created', `Opening dedicated builder for "${exerciseTitle.trim()}"...`, 'success');
-    router.push(`/projects/${slug}/outlines/${outlineId}/exercise/${exerciseId}?title=${encodeURIComponent(exerciseTitle.trim())}`);
+    setExerciseTitle('');
+    setExerciseDescription('');
+    router.push(`/projects/${slug}/outlines/${outlineId}/exercise/${res.id}`);
   };
 
   const handleCreateExerciseAIImport = async (parsedProblems: any[]) => {
-    const exerciseId = `ex-${cryptoNativeUUID()}`;
     setIsPending(true);
-    const res = await importProblemSetListAction(outlineId, parsedProblems, exerciseId);
+
+    // Create the exercise_set row first
+    const setRes = await createExerciseSetAction(
+      outlineId,
+      'Textbook Exercise Set',
+      '',
+      70,
+      true
+    );
+
+    if (setRes.error) {
+      setIsPending(false);
+      setIsExerciseModalOpen(false);
+      toast('Creation Failed', setRes.error, 'error');
+      return;
+    }
+
+    const exerciseId = setRes.id!;
+
+    // Bulk-import the AI-parsed problems under this exercise set
+    const res = await importProblemSetListAction(outlineId, parsedProblems, exerciseId, 'exercise');
     setIsPending(false);
     setIsExerciseModalOpen(false);
 
@@ -199,7 +236,7 @@ export const ProblemManagerWorkspace: React.FC<ProblemManagerWorkspaceProps> = (
       toast('Import Failed', res.error, 'error');
     } else {
       toast('Exercise Set Created', `Digitized ${res.count} questions into exercise set.`, 'success');
-      router.push(`/projects/${slug}/outlines/${outlineId}/exercise/${exerciseId}?title=${encodeURIComponent('Textbook Exercise Set')}`);
+      router.push(`/projects/${slug}/outlines/${outlineId}/exercise/${exerciseId}`);
     }
   };
 
@@ -386,7 +423,7 @@ export const ProblemManagerWorkspace: React.FC<ProblemManagerWorkspaceProps> = (
               <form onSubmit={handleCreateExerciseManual} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
-                    Exercise Set Title
+                    Exercise Set Title <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -394,7 +431,19 @@ export const ProblemManagerWorkspace: React.FC<ProblemManagerWorkspaceProps> = (
                     value={exerciseTitle}
                     onChange={(e) => setExerciseTitle(e.target.value)}
                     placeholder="e.g. Problem Set 0.4: Graphing Equations"
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+                    Description <span className="text-slate-400 font-normal">(optional)</span>
+                  </label>
+                  <textarea
+                    value={exerciseDescription}
+                    onChange={(e) => setExerciseDescription(e.target.value)}
+                    rows={2}
+                    placeholder="Brief instructions or context for students…"
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 resize-none"
                   />
                 </div>
                 <div className="flex justify-end gap-3 pt-2">
@@ -407,9 +456,11 @@ export const ProblemManagerWorkspace: React.FC<ProblemManagerWorkspaceProps> = (
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-semibold shadow-md shadow-indigo-600/30"
+                    disabled={isPending || !exerciseTitle.trim()}
+                    className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/30 flex items-center gap-2 disabled:opacity-60"
                   >
-                    Open Dedicated Page
+                    {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                    <span>{isPending ? 'Creating…' : 'Open Dedicated Page'}</span>
                   </button>
                 </div>
               </form>

@@ -77,3 +77,42 @@ export async function updatePasswordAction(prevState: any, formData: FormData) {
     return { error: err.message || 'Failed to update password.' };
   }
 }
+
+export async function updateQuoteSettingsAction(prevState: any, formData: FormData) {
+  try {
+    const session = await getSession();
+    if (!session?.userId) {
+      return { error: 'Unauthorized session. Please log in again.' };
+    }
+
+    const refreshInterval = (formData.get('quoteRefreshInterval') as string || 'hourly').toLowerCase();
+    const category = (formData.get('quoteCategory') as string || 'inspirational').toLowerCase();
+
+    const validIntervals = ['hourly', 'daily', 'always'];
+    const validCategories = ['inspirational', 'education', 'learning', 'success', 'knowledge'];
+
+    const targetInterval = validIntervals.includes(refreshInterval) ? refreshInterval : 'hourly';
+    const targetCategory = validCategories.includes(category) ? category : 'inspirational';
+
+    db.update(users)
+      .set({
+        quote_refresh_interval: targetInterval as any,
+        quote_category: targetCategory,
+      })
+      .where(eq(users.id, session.userId))
+      .run();
+
+    revalidatePath('/dashboard');
+    revalidatePath('/settings');
+
+    return {
+      success: true,
+      message: 'Motivational quote preferences updated successfully!',
+      quoteRefreshInterval: targetInterval,
+      quoteCategory: targetCategory,
+    };
+  } catch (err: any) {
+    return { error: err.message || 'Failed to update quote settings.' };
+  }
+}
+

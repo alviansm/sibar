@@ -121,6 +121,24 @@ function ensureTablesExist() {
   try {
     sqlite.exec(`ALTER TABLE users ADD COLUMN full_name TEXT`);
   } catch (e) {}
+  try {
+    sqlite.exec(`ALTER TABLE users ADD COLUMN quote_refresh_interval TEXT NOT NULL DEFAULT 'hourly'`);
+  } catch (e) {}
+  try {
+    sqlite.exec(`ALTER TABLE users ADD COLUMN quote_category TEXT NOT NULL DEFAULT 'inspirational'`);
+  } catch (e) {}
+
+  // New columns for three-category problem system
+  try {
+    sqlite.exec(`ALTER TABLE problems ADD COLUMN problem_kind TEXT NOT NULL DEFAULT 'example'`);
+  } catch (e) {}
+  // Auto-migrate: any problem with an exercise_id is an exercise problem
+  try {
+    sqlite.exec(`UPDATE problems SET problem_kind = 'exercise' WHERE exercise_id IS NOT NULL AND exercise_id != ''`);
+  } catch (e) {}
+  try {
+    sqlite.exec(`ALTER TABLE exercise_sets ADD COLUMN is_timed INTEGER NOT NULL DEFAULT 1`);
+  } catch (e) {}
 
   // Create rate limit & exercise tables if missing
   sqlite.exec(`
@@ -137,6 +155,7 @@ function ensureTablesExist() {
       title TEXT NOT NULL,
       description TEXT NOT NULL DEFAULT '',
       passing_grade INTEGER NOT NULL DEFAULT 70,
+      is_timed INTEGER NOT NULL DEFAULT 1,
       is_deleted INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL
     );

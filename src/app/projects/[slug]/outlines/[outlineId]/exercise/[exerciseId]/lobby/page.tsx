@@ -11,12 +11,10 @@ export const revalidate = 0;
 
 interface ExerciseLobbyPageProps {
   params: Promise<{ slug: string; outlineId: string; exerciseId: string }>;
-  searchParams: Promise<{ title?: string }>;
 }
 
 export default async function ExerciseLobbyPage(props: ExerciseLobbyPageProps) {
   const params = await props.params;
-  const searchParams = await props.searchParams;
   const user = await getCurrentUser();
 
   const outline = db
@@ -25,9 +23,7 @@ export default async function ExerciseLobbyPage(props: ExerciseLobbyPageProps) {
     .where(and(eq(outlines.id, params.outlineId), eq(outlines.is_deleted, 0)))
     .get();
 
-  if (!outline) {
-    notFound();
-  }
+  if (!outline) notFound();
 
   const project = db
     .select()
@@ -35,9 +31,16 @@ export default async function ExerciseLobbyPage(props: ExerciseLobbyPageProps) {
     .where(and(eq(projects.id, outline.project_id), eq(projects.is_deleted, 0)))
     .get();
 
-  if (!project) {
-    notFound();
-  }
+  if (!project) notFound();
+
+  // Fetch the exercise_set row for persistent settings
+  const exerciseSet = db
+    .select()
+    .from(exercise_sets)
+    .where(and(eq(exercise_sets.id, params.exerciseId), eq(exercise_sets.is_deleted, 0)))
+    .get();
+
+  if (!exerciseSet) notFound();
 
   // Fetch problems attached to this exercise set
   const exerciseProblems = db
@@ -52,7 +55,11 @@ export default async function ExerciseLobbyPage(props: ExerciseLobbyPageProps) {
     )
     .all();
 
-  // Fetch previous session attempts for metadata & best grade stats
+  const mcqCount = exerciseProblems.filter((p) => p.problem_type === 'multiple_choice').length;
+  const essayCount = exerciseProblems.filter((p) => p.problem_type === 'essay').length;
+  const otherCount = exerciseProblems.length - mcqCount - essayCount;
+
+  // Fetch previous session attempts
   const previousAttempts = db
     .select()
     .from(exercise_session_attempts)
@@ -76,9 +83,6 @@ export default async function ExerciseLobbyPage(props: ExerciseLobbyPageProps) {
   const hasPassed = finishedAttempts.some((a) => a.is_passed === 1);
   const lastAttempt = previousAttempts[0] || null;
 
-  const exerciseTitle =
-    searchParams.title || `Exercise Set (${params.exerciseId.substring(0, 8)})`;
-
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
       <Navbar username={user?.username || 'admin'} fullName={user?.fullName} />
@@ -91,12 +95,17 @@ export default async function ExerciseLobbyPage(props: ExerciseLobbyPageProps) {
           projectTitle={project.name}
           subchapterCode={outline.code}
           subchapterTitle={outline.title}
-          exerciseTitle={exerciseTitle}
+          exerciseTitle={exerciseSet.title}
+          exerciseDescription={exerciseSet.description}
           questionCount={exerciseProblems.length}
+          mcqCount={mcqCount}
+          essayCount={essayCount}
+          otherCount={otherCount}
+          isTimed={exerciseSet.is_timed === 1}
           attemptsCount={attemptsCount}
           bestScorePct={bestScorePct}
           hasPassed={hasPassed}
-          passingGrade={70}
+          passingGrade={exerciseSet.passing_grade}
           lastAttemptDuration={lastAttempt?.duration_seconds || null}
           lastAttemptFinishedAt={lastAttempt?.finished_at || null}
           lastAttemptSessionId={lastAttempt?.id || null}

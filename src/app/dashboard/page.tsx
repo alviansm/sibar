@@ -23,6 +23,8 @@ import { NewProjectModal } from './NewProjectModal';
 
 import { AiApiChecker } from '@/components/AiApiChecker';
 import { LottieEmptyState } from '@/components/LottieEmptyState';
+import { DashboardQuote } from '@/components/DashboardQuote';
+import { getMotivationalQuote } from '@/lib/quotes';
 
 import { getCurrentUser } from '@/lib/auth';
 
@@ -31,6 +33,13 @@ export const revalidate = 0;
 export default async function DashboardPage() {
   const user = await getCurrentUser();
   const displayName = user?.fullName || user?.username || 'Scholar';
+
+  // Fetch initial motivational quote based on user preference
+  const initialQuote = await getMotivationalQuote(
+    (user?.quoteRefreshInterval as any) || 'hourly',
+    user?.quoteCategory || 'inspirational'
+  );
+
 
   // Fetch Telemetry Aggregation Data (Only for active non-deleted items)
   const allAttempts = db
@@ -106,9 +115,12 @@ export default async function DashboardPage() {
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
               Welcome back, {displayName}
             </h1>
-            <p className="text-slate-300 text-sm max-w-xl">
-              Track your math derivation reps, study time, and problem friction like a high-performance athlete.
-            </p>
+            <DashboardQuote
+              initialQuote={initialQuote}
+              interval={user?.quoteRefreshInterval || 'hourly'}
+              category={user?.quoteCategory || 'inspirational'}
+            />
+
           </div>
 
           <div className="relative z-10 flex items-center gap-3">

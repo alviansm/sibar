@@ -15,7 +15,8 @@ export async function createProblemAction(
   correctOptionIndex: number | null = null,
   difficulty: number = 1,
   correctOptionIndices: number[] | null = null,
-  exerciseId: string | null = null
+  exerciseId: string | null = null,
+  problemKind: 'example' | 'exercise' = 'example'
 ) {
   const id = cryptoNativeUUID();
   const now = Math.floor(Date.now() / 1000);
@@ -32,6 +33,7 @@ export async function createProblemAction(
         id,
         outline_id: outlineId,
         exercise_id: exerciseId,
+        problem_kind: problemKind,
         problem_statement: problemStatement,
         solution_guide: solutionGuide,
         problem_type: problemType,
@@ -134,7 +136,8 @@ export async function deleteProblemAction(id: string) {
 export async function importProblemSetListAction(
   outlineId: string,
   problemsData: any[],
-  exerciseId: string | null = null
+  exerciseId: string | null = null,
+  problemKind: 'example' | 'exercise' = 'example'
 ) {
   const now = Math.floor(Date.now() / 1000);
   try {
@@ -157,6 +160,7 @@ export async function importProblemSetListAction(
           id: pId,
           outline_id: outlineId,
           exercise_id: exerciseId,
+          problem_kind: problemKind,
           problem_statement: p.problem_statement || 'Exercise problem',
           solution_guide: p.solution_guide || 'Reference solution',
           problem_type: p.problem_type || 'calculation',

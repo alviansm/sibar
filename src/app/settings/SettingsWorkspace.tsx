@@ -1,21 +1,24 @@
 'use client';
 
 import React, { useState } from 'react';
-import { User, ShieldCheck, UserCog, KeyRound, ChevronRight } from 'lucide-react';
+import { User, ShieldCheck, UserCog, KeyRound, ChevronRight, Quote } from 'lucide-react';
 import { ProfileSettingsForm } from './ProfileSettingsForm';
 import { SecuritySettingsForm } from './SecuritySettingsForm';
+import { QuoteSettingsForm } from './QuoteSettingsForm';
 
 interface SettingsWorkspaceProps {
   user: {
     id: string;
     username: string;
     fullName?: string | null;
+    quoteRefreshInterval?: string | null;
+    quoteCategory?: string | null;
     createdAt?: number;
   };
 }
 
 export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({ user }) => {
-  const [activeTab, setActiveTab] = useState<'profile' | 'security'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'quotes'>('profile');
 
   return (
     <div className="flex flex-col md:flex-row gap-8 items-start">
@@ -44,6 +47,21 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({ user }) =>
           </button>
 
           <button
+            onClick={() => setActiveTab('quotes')}
+            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-semibold transition-all ${
+              activeTab === 'quotes'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold'
+                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <Quote className="w-4 h-4" />
+              <span>Motivational Quote</span>
+            </div>
+            <ChevronRight className={`w-3.5 h-3.5 opacity-60 ${activeTab === 'quotes' ? 'text-white' : ''}`} />
+          </button>
+
+          <button
             onClick={() => setActiveTab('security')}
             className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-semibold transition-all ${
               activeTab === 'security'
@@ -66,12 +84,19 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({ user }) =>
         {/* Section Header */}
         <div className="pb-4 border-b border-slate-100 dark:border-slate-800">
           <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-            {activeTab === 'profile' ? (
+            {activeTab === 'profile' && (
               <>
                 <User className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                 <span>Profile Settings</span>
               </>
-            ) : (
+            )}
+            {activeTab === 'quotes' && (
+              <>
+                <Quote className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <span>Motivational Quote Settings</span>
+              </>
+            )}
+            {activeTab === 'security' && (
               <>
                 <ShieldCheck className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                 <span>Security &amp; Password</span>
@@ -79,14 +104,15 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({ user }) =>
             )}
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            {activeTab === 'profile'
-              ? 'Manage your public persona, display name, and cognitive telemetry preferences.'
-              : 'Update your login password and protect your cognitive training archive.'}
+            {activeTab === 'profile' && 'Manage your public persona, display name, and cognitive telemetry preferences.'}
+            {activeTab === 'quotes' && 'Configure API Ninjas quotes, refresh interval (hourly/daily/always), and 50 local quotes fallback.'}
+            {activeTab === 'security' && 'Update your login password and protect your cognitive training archive.'}
           </p>
         </div>
 
         {/* Tab Content Form */}
         {activeTab === 'profile' && <ProfileSettingsForm user={user} />}
+        {activeTab === 'quotes' && <QuoteSettingsForm user={user} />}
         {activeTab === 'security' && <SecuritySettingsForm />}
 
       </main>
@@ -94,3 +120,4 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({ user }) =>
     </div>
   );
 };
+

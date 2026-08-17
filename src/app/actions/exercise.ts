@@ -1,10 +1,82 @@
 'use server';
 
 import { db } from '@/db';
-import { exercise_session_attempts, exercise_sets } from '@/db/schema';
+import { exercise_session_attempts, exercise_sets, problems, outlines, projects } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { cryptoNativeUUID } from '@/lib/utils';
+
+// ─── Exercise Set CRUD ────────────────────────────────────────────────────────
+
+export async function createExerciseSetAction(
+  outlineId: string,
+  title: string,
+  description: string = '',
+  passingGrade: number = 70,
+  isTimed: boolean = true
+) {
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    const id = cryptoNativeUUID();
+
+    db.insert(exercise_sets)
+      .values({ id, outline_id: outlineId, title, description, passing_grade: passingGrade, is_timed: isTimed ? 1 : 0, created_at: now })
+      .run();
+
+    const outline = db.select().from(outlines).where(eq(outlines.id, outlineId)).get();
+    if (outline) {
+      const proj = db.select().from(projects).where(eq(projects.id, outline.project_id)).get();
+      if (proj) {
+        revalidatePath(`/projects/${proj.slug}`);
+      }
+    }
+
+    return { success: true, id };
+  } catch (error: any) {
+    return { error: error.message || 'Failed to create exercise set.' };
+  }
+}
+
+export async function updateExerciseSetAction(
+  exerciseId: string,
+  updates: {
+    title?: string;
+    description?: string;
+    passing_grade?: number;
+    is_timed?: boolean;
+  }
+) {
+  try {
+    const setObj: any = {};
+    if (updates.title !== undefined) setObj.title = updates.title;
+    if (updates.description !== undefined) setObj.description = updates.description;
+    if (updates.passing_grade !== undefined) setObj.passing_grade = Math.max(0, Math.min(100, updates.passing_grade));
+    if (updates.is_timed !== undefined) setObj.is_timed = updates.is_timed ? 1 : 0;
+
+    db.update(exercise_sets).set(setObj).where(eq(exercise_sets.id, exerciseId)).run();
+
+    revalidatePath('/projects/[slug]', 'layout');
+    return { success: true };
+  } catch (error: any) {
+    return { error: error.message || 'Failed to update exercise set.' };
+  }
+}
+
+export async function deleteExerciseSetAction(exerciseId: string) {
+  try {
+    // Soft-delete the exercise set
+    db.update(exercise_sets).set({ is_deleted: 1 }).where(eq(exercise_sets.id, exerciseId)).run();
+    // Soft-delete all associated problems
+    db.update(problems).set({ is_deleted: 1 }).where(eq(problems.exercise_id, exerciseId)).run();
+
+    revalidatePath('/projects/[slug]', 'layout');
+    return { success: true };
+  } catch (error: any) {
+    return { error: error.message || 'Failed to delete exercise set.' };
+  }
+}
+
+// ─── Session ──────────────────────────────────────────────────────────────────
 
 export async function startExerciseSessionAction(
   exerciseId: string,
@@ -14,7 +86,6 @@ export async function startExerciseSessionAction(
   try {
     const now = Math.floor(Date.now() / 1000);
 
-    // Count previous attempts for this exercise
     const previousAttempts = db
       .select()
       .from(exercise_session_attempts)
