@@ -1,0 +1,46 @@
+{
+  "name": "sibar",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next build && next start",
+    "dev:watch": "next dev",
+    "dev:turbo": "next dev --turbo",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "seed": "tsx src/db/seed.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push"
+  },
+  "dependencies": {
+    "@google/genai": "latest",
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.7.0",
+    "clsx": "^2.1.1",
+    "drizzle-orm": "^0.38.0",
+    "jose": "^5.9.6",
+    "katex": "^0.16.11",
+    "lottie-react": "^3.1.0",
+    "lucide-react": "^0.468.0",
+    "next": "^15.1.7",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-katex": "^3.0.1",
+    "tailwind-merge": "^2.5.5"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/katex": "^0.16.7",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "autoprefixer": "^10.4.20",
+    "drizzle-kit": "^0.30.4",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

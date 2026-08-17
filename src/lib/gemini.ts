@@ -1,0 +1,447 @@
+import { GoogleGenAI } from '@google/genai';
+
+export interface ParsedProblemResult {
+  problem_statement: string;
+  solution_guide: string;
+  problem_type: 'derivation' | 'calculation' | 'multiple_choice';
+  options: string[] | null;
+  difficulty: number;
+}
+
+export interface AIGradeFeedback {
+  correctness: string;
+  verdict: string;
+  suggestions: string;
+}
+
+export const AVAILABLE_GEMINI_MODELS = [
+  { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash (Fast & Recommended)' },
+  { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro (High Reasoning)' },
+];
+
+function getGeminiClient() {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey === 'your_gemini_api_key_here' || apiKey.includes('YOUR_GEMINI_API_KEY')) {
+    throw new Error('GEMINI_API_KEY is not configured. Please set a valid API key from https://aistudio.google.com/ in your .env file.');
+  }
+  return new GoogleGenAI({ apiKey });
+}
+
+async function generateContentWithFallback(
+  ai: GoogleGenAI,
+  primaryModel: string,
+  contents: any,
+  config: any
+) {
+  const fallbackModels = [
+    primaryModel,
+    'gemini-3.6-flash',
+    'gemini-3.1-pro-preview',
+  ].filter((v, i, a) => Boolean(v) && a.indexOf(v) === i);
+
+  let lastError: any = null;
+
+  for (const model of fallbackModels) {
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await ai.models.generateContent({
+          model,
+          contents,
+          config,
+        });
+        return { response, usedModel: model };
+      } catch (err: any) {
+        const errMsg = err?.message || String(err);
+        const isApiKeyError =
+          err?.status === 400 ||
+          errMsg.includes('API key not valid') ||
+          errMsg.includes('API_KEY_INVALID') ||
+          errMsg.includes('INVALID_ARGUMENT');
+
+        if (isApiKeyError) {
+          throw new Error('Invalid Gemini API Key. Please update your GEMINI_API_KEY in .env with a valid key from https://aistudio.google.com/.');
+        }
+
+        const isTransient =
+          err?.status === 503 ||
+          err?.status === 429 ||
+          err?.code === 503 ||
+          errMsg.includes('503') ||
+          errMsg.includes('high demand') ||
+          errMsg.includes('UNAVAILABLE');
+
+        console.warn(
+          `Gemini model '${model}' attempt ${attempt}/${maxRetries} failed:`,
+          errMsg
+        );
+        lastError = err;
+
+        if (isTransient && attempt < maxRetries) {
+          const delayMs = attempt * 2000;
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+        } else {
+          break; // Fail immediately on non-transient errors (like 404) to try next fallback model
+        }
+      }
+    }
+  }
+
+  throw lastError || new Error('All Gemini AI model attempts failed.');
+}
+
+export async function parseProblemImage(
+  imageBase64: string,
+  mimeType: string = 'image/png',
+  modelName: string = 'gemini-3.6-flash'
+): Promise<ParsedProblemResult> {
+  const ai = getGeminiClient();
+  
+  const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+
+  const prompt = `You are an expert STEM LaTeX & Math Digitizer. 
+Examine the uploaded image containing a mathematical or engineering problem.
+Transcribe and extract the problem with high precision.
+
+Return ONLY a valid JSON object matching the following TypeScript interface (no markdown code fence formatting outside the JSON if possible, just raw valid JSON):
+
+{
+  "problem_statement": "Markdown string containing clean LaTeX math inline ($...$) or display ($$...$$).",
+  "solution_guide": "Step-by-step LaTeX derivation or reference solution key.",
+  "problem_type": "derivation" | "calculation" | "multiple_choice",
+  "options": ["Option A LaTeX", "Option B LaTeX", ...] or null if not multiple choice,
+  "difficulty": integer from 1 (easy/introductory) to 5 (advanced olympiad/grad level)
+}
+
+Ensure all mathematical expressions use standard LaTeX notation (e.g., \\frac{a}{b}, \\lim_{x \\to \\infty}, \\int_a^b).`;
+
+  try {
+    const { response } = await generateContentWithFallback(
+      ai,
+      modelName || 'gemini-3.6-flash',
+      [
+        {
+          role: 'user',
+          parts: [
+            { text: prompt },
+            {
+              inlineData: {
+                data: cleanBase64,
+                mimeType: mimeType,
+              },
+            },
+          ],
+        },
+      ],
+      { responseMimeType: 'application/json' }
+    );
+
+    const responseText = response.text || '';
+    const parsed = JSON.parse(responseText.trim());
+    
+    return {
+      problem_statement: parsed.problem_statement || 'Transcribed problem statement',
+      solution_guide: parsed.solution_guide || 'Step-by-step solution derivation',
+      problem_type: ['derivation', 'calculation', 'multiple_choice'].includes(parsed.problem_type)
+        ? parsed.problem_type
+        : 'calculation',
+      options: Array.isArray(parsed.options) ? parsed.options : null,
+      difficulty: typeof parsed.difficulty === 'number' ? Math.min(5, Math.max(1, parsed.difficulty)) : 3,
+    };
+  } catch (error) {
+    console.error(`Error parsing problem image with Gemini:`, error);
+    throw error;
+  }
+}
+
+export async function generateAttemptFeedback(
+  problemStatement: string,
+  solutionGuide: string,
+  userNotesOrAnswer: string,
+  modelName: string = 'gemini-3.6-flash'
+): Promise<AIGradeFeedback> {
+  try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return {
+        correctness: 'Self-Evaluated',
+        verdict: 'Attempt logged successfully.',
+        suggestions: 'Set GEMINI_API_KEY for automatic AI grading telemetry.',
+      };
+    }
+
+    const ai = getGeminiClient();
+    const prompt = `You are Sibar's AI Telemetry Coach. Analyze the student's solution attempt against the reference guide.
+
+Problem Statement:
+${problemStatement}
+
+Reference Solution Guide:
+${solutionGuide}
+
+Student Attempt Notes / Answer:
+${userNotesOrAnswer}
+
+Provide structured feedback in JSON format:
+{
+  "correctness": "e.g. 100% Correct / Partial Match / Minor Error",
+  "verdict": "Brief 1-2 sentence assessment of their logical steps.",
+  "suggestions": "Actionable tip for future reps."
+}`;
+
+    const { response } = await generateContentWithFallback(
+      ai,
+      modelName || 'gemini-3.6-flash',
+      [{ role: 'user', parts: [{ text: prompt }] }],
+      { responseMimeType: 'application/json' }
+    );
+
+    const parsed = JSON.parse(response.text?.trim() || '{}');
+    return {
+      correctness: parsed.correctness || 'Complete',
+      verdict: parsed.verdict || 'Good effort on completing this rep.',
+      suggestions: parsed.suggestions || 'Keep practicing similar problem archetypes.',
+    };
+  } catch (err) {
+    console.warn('AI feedback generation warning:', err);
+    return {
+      correctness: 'Recorded',
+      verdict: 'Attempt recorded into telemetry archive.',
+      suggestions: 'Review reference solution steps.',
+    };
+  }
+}
+
+export interface ParsedSubchapter {
+  code: string;
+  title: string;
+  description?: string;
+  problems?: ParsedProblemResult[];
+}
+
+export interface ParsedChapter {
+  code: string;
+  title: string;
+  description?: string;
+  subchapters: ParsedSubchapter[];
+}
+
+export interface ParsedTaxonomyResult {
+  is_valid_syllabus: boolean;
+  error_message: string | null;
+  chapters: ParsedChapter[];
+}
+
+export async function parseTaxonomyImages(
+  images: { base64: string; mimeType: string }[],
+  generateProblems: boolean = false,
+  modelName: string = 'gemini-3.6-flash'
+): Promise<ParsedTaxonomyResult> {
+  const ai = getGeminiClient();
+
+  const imageParts = images.map((img) => ({
+    inlineData: {
+      data: img.base64.replace(/^data:image\/\w+;base64,/, ''),
+      mimeType: img.mimeType || 'image/png',
+    },
+  }));
+
+  const prompt = `You are an expert Curriculum & Syllabus Digitizer AI.
+Examine the provided image(s) containing a textbook Table of Contents, syllabus, or course outline.
+
+FIRST: Validate whether the uploaded image(s) contain a course table of contents, chapter outline, or textbook syllabus.
+- If the image is NOT a table of contents / syllabus / course outline (e.g. photo of an animal, receipt, face, or unrelated text), return "is_valid_syllabus": false with a clear explanation in "error_message".
+- If valid, set "is_valid_syllabus": true, set "error_message": null, and extract the complete hierarchy of chapters and subchapters.
+
+${
+  generateProblems
+    ? 'ALSO: For EACH subchapter, auto-generate 1 to 2 realistic math/engineering problem reps written in clean LaTeX ($...$ and $$...$$) along with a step-by-step solution guide and problem type.'
+    : 'DO NOT generate problems array if not requested.'
+}
+
+Return ONLY valid JSON matching this schema:
+{
+  "is_valid_syllabus": boolean,
+  "error_message": string | null,
+  "chapters": [
+    {
+      "code": "e.g. Ch 0 or Chapter 1",
+      "title": "e.g. Preliminaries",
+      "description": "Brief 1-sentence topic summary",
+      "subchapters": [
+        {
+          "code": "e.g. 0.1",
+          "title": "e.g. Real Numbers, Estimation, and Logic",
+          "description": "Brief subchapter overview"
+          ${
+            generateProblems
+              ? `, "problems": [
+            {
+              "problem_statement": "LaTeX Markdown problem statement",
+              "solution_guide": "Step-by-step LaTeX solution key",
+              "problem_type": "derivation",
+              "options": null,
+              "difficulty": 2
+            }
+          ]`
+              : ''
+          }
+        }
+      ]
+    }
+  ]
+}`;
+
+  try {
+    const { response } = await generateContentWithFallback(
+      ai,
+      modelName || 'gemini-3.6-flash',
+      [
+        {
+          role: 'user',
+          parts: [{ text: prompt }, ...imageParts],
+        },
+      ],
+      { responseMimeType: 'application/json' }
+    );
+
+    const responseText = response.text || '';
+    const parsed = JSON.parse(responseText.trim());
+
+    if (!parsed.is_valid_syllabus) {
+      return {
+        is_valid_syllabus: false,
+        error_message:
+          parsed.error_message ||
+          'The uploaded image does not appear to contain a valid table of contents or course outline.',
+        chapters: [],
+      };
+    }
+
+    return {
+      is_valid_syllabus: true,
+      error_message: null,
+      chapters: Array.isArray(parsed.chapters) ? parsed.chapters : [],
+    };
+  } catch (error: any) {
+    console.error(`Error parsing taxonomy with Gemini (${modelName}):`, error);
+    return {
+      is_valid_syllabus: false,
+      error_message: error.message || 'Failed to parse table of contents image.',
+      chapters: [],
+    };
+  }
+}
+
+export interface ParsedProblemSetItem {
+  problem_statement: string;
+  solution_guide: string;
+  problem_type: 'derivation' | 'calculation' | 'multiple_choice' | 'essay';
+  options: string[] | null;
+  correct_option_index: number | null;
+  difficulty: number;
+}
+
+export interface ParsedProblemSetResult {
+  is_valid_problems: boolean;
+  error_message: string | null;
+  problems: ParsedProblemSetItem[];
+}
+
+export async function parseProblemSetImages(
+  images: { base64: string; mimeType?: string }[],
+  targetProblemType: 'multiple_choice' | 'essay' | 'auto' = 'auto',
+  modelName: string = 'gemini-3.6-flash',
+  userInstructions?: string
+): Promise<ParsedProblemSetResult> {
+  const ai = getGeminiClient();
+
+  const imageParts = images.map((img) => ({
+    inlineData: {
+      data: img.base64.replace(/^data:image\/\w+;base64,/, ''),
+      mimeType: img.mimeType || 'image/png',
+    },
+  }));
+
+  const prompt = `You are an expert STEM Exam & Problem Set Digitizer AI.
+Examine the provided textbook problem set image(s) (e.g. textbook page exercise sets, problem set 0.4, or exam sheets).
+
+FIRST: Check if the image contains mathematical, scientific, or engineering problem statements.
+- If invalid, set "is_valid_problems": false with explanation in "error_message".
+- If valid, set "is_valid_problems": true, set "error_message": null, and extract all exercise problem statements.
+
+${
+  userInstructions && userInstructions.trim().length > 0
+    ? `ADDITIONAL USER SPECIFIC INSTRUCTIONS / CUSTOM REQUIREMENTS:
+"${userInstructions.trim()}"
+Follow these custom instructions strictly (e.g., specific number of problems to select or generate, difficulty level, mixing problem formats such as 4 multiple choices and 1 essay, or creating similar variant problems rather than an exact copy).`
+    : ''
+}
+
+For EACH problem:
+1. Write the "problem_statement" in clean LaTeX ($...$ and $$...$$).
+2. Write a comprehensive "solution_guide" with step-by-step reasoning key in LaTeX.
+3. Set "problem_type": ${
+    targetProblemType === 'multiple_choice'
+      ? '"multiple_choice"'
+      : targetProblemType === 'essay'
+      ? '"essay"'
+      : 'either "multiple_choice" or "essay" or "calculation"'
+  }.
+4. If "multiple_choice", provide "options": array of 4 distinct LaTeX choice strings (1 correct answer + 3 plausible wrong distractors), and "correct_option_index": 0-based index of correct option. If not multiple choice, set "options": null and "correct_option_index": null.
+5. Set "difficulty": number from 1 to 5.
+
+Return ONLY valid JSON matching this schema:
+{
+  "is_valid_problems": boolean,
+  "error_message": string | null,
+  "problems": [
+    {
+      "problem_statement": "LaTeX problem statement string",
+      "solution_guide": "LaTeX solution key steps",
+      "problem_type": "multiple_choice",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "correct_option_index": 0,
+      "difficulty": 2
+    }
+  ]
+}`;
+
+  try {
+    const { response } = await generateContentWithFallback(
+      ai,
+      modelName || 'gemini-3.6-flash',
+      [
+        {
+          role: 'user',
+          parts: [{ text: prompt }, ...imageParts],
+        },
+      ],
+      { responseMimeType: 'application/json' }
+    );
+
+    const responseText = response.text || '';
+    const parsed = JSON.parse(responseText.trim());
+
+    if (!parsed.is_valid_problems) {
+      return {
+        is_valid_problems: false,
+        error_message: parsed.error_message || 'The image does not contain clear problem set exercises.',
+        problems: [],
+      };
+    }
+
+    return {
+      is_valid_problems: true,
+      error_message: null,
+      problems: Array.isArray(parsed.problems) ? parsed.problems : [],
+    };
+  } catch (error: any) {
+    console.error(`Error parsing problem set with Gemini (${modelName}):`, error);
+    return {
+      is_valid_problems: false,
+      error_message: error.message || 'Failed to digitize problem set image.',
+      problems: [],
+    };
+  }
+}
