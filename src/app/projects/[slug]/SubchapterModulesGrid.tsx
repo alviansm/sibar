@@ -29,6 +29,7 @@ import {
 import { MathRenderer } from '@/components/MathRenderer';
 import { LottieEmptyState } from '@/components/LottieEmptyState';
 import { toggleConceptStatusAction } from '@/app/actions/projects';
+import { toggleExampleStatusAction } from '@/app/actions/problems';
 import { useToast } from '@/components/Toast';
 
 export interface CardItem {
@@ -145,6 +146,19 @@ export const SubchapterModulesGrid: React.FC<SubchapterModulesGridProps> = ({
         isCompleted ? 'Marked as Completed' : 'Marked as Unread',
         isCompleted ? 'Progress ring updated.' : 'Concept reset to unread.',
         isCompleted ? 'success' : 'info'
+      );
+    }
+  };
+
+  const handleToggleExampleStatus = async (problemId: string) => {
+    const res = await toggleExampleStatusAction(activeSubchapter.id, problemId);
+    if (res.error) {
+      toast('Error', res.error, 'error');
+    } else {
+      toast(
+        res.isCompleted ? 'Marked as Completed' : 'Marked as Unread',
+        res.isCompleted ? 'Example problem marked as completed.' : 'Example problem reset to unread.',
+        res.isCompleted ? 'success' : 'info'
       );
     }
   };
@@ -497,6 +511,20 @@ export const SubchapterModulesGrid: React.FC<SubchapterModulesGridProps> = ({
                           </div>
                         </div>
                       )}
+
+                      <div className="flex justify-end pt-2">
+                        <button
+                          onClick={() => handleToggleExampleStatus(card.id)}
+                          className={`px-5 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-2 transition-all shadow-md ${
+                            prob.status === 'solved'
+                              ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200'
+                              : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30'
+                          }`}
+                        >
+                          <Check className="w-4 h-4" />
+                          <span>{prob.status === 'solved' ? 'Mark as Unread' : 'Mark as Completed'}</span>
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

@@ -2,7 +2,7 @@
 
 import { db } from '@/db';
 import { problems, outlines, projects, problem_attempts } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { cryptoNativeUUID } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
 
@@ -186,3 +186,54 @@ export async function importProblemSetListAction(
     return { error: err.message || 'Failed to import problem set list.' };
   }
 }
+
+export async function toggleExampleStatusAction(outlineId: string, problemId: string) {
+  try {
+    const existing = db
+      .select()
+      .from(problem_attempts)
+      .where(
+        and(
+          eq(problem_attempts.problem_id, problemId),
+          eq(problem_attempts.outcome, 'clean_solve'),
+          eq(problem_attempts.is_deleted, 0)
+        )
+      )
+      .get();
+
+    if (existing) {
+      db.update(problem_attempts)
+        .set({ is_deleted: 1 })
+        .where(eq(problem_attempts.id, existing.id))
+        .run();
+    } else {
+      const now = Math.floor(Date.now() / 1000);
+      const id = cryptoNativeUUID();
+      db.insert(problem_attempts)
+        .values({
+          id,
+          problem_id: problemId,
+          outline_id: outlineId,
+          time_spent_seconds: 0,
+          attempt_number: 1,
+          outcome: 'clean_solve',
+          friction_score: 1,
+          created_at: now,
+        })
+        .run();
+    }
+
+    const outline = db.select().from(outlines).where(eq(outlines.id, outlineId)).get();
+    if (outline) {
+      const proj = db.select().from(projects).where(eq(projects.id, outline.project_id)).get();
+      if (proj) {
+        revalidatePath(`/projects/${proj.slug}`);
+      }
+    }
+
+    return { success: true, isCompleted: !existing };
+  } catch (err: any) {
+    return { error: err.message || 'Failed to toggle example status.' };
+  }
+}
+
