@@ -72,6 +72,10 @@ export default async function ExerciseManagerPage(props: ExerciseManagerPageProp
     };
   });
 
+  const parentChapter = outline.parent_id
+    ? db.select().from(outlines).where(and(eq(outlines.id, outline.parent_id), eq(outlines.is_deleted, 0))).get()
+    : null;
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
       <Navbar username={user?.username || 'admin'} fullName={user?.fullName} />
@@ -83,6 +87,7 @@ export default async function ExerciseManagerPage(props: ExerciseManagerPageProp
           projectTitle={project.name}
           subchapterCode={outline.code}
           subchapterTitle={outline.title}
+          parentChapter={parentChapter ? { id: parentChapter.id, code: parentChapter.code, title: parentChapter.title } : null}
           initialExerciseSets={exerciseSets}
         />
       </main>

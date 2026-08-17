@@ -1,108 +1,113 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { logAttemptAction } from '@/app/actions/session';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { MathRenderer } from '@/components/MathRenderer';
 import { formatSecondsToHHMMSS } from '@/lib/utils';
+import { finishExerciseSessionAction, startExerciseSessionAction } from '@/app/actions/exercise';
+import { logAttemptAction } from '@/app/actions/session';
+import { useToast } from '@/components/Toast';
+import { Breadcrumb } from '@/components/Breadcrumb';
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import {
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Sparkles,
+  CheckCircle2,
+  AlertTriangle,
+  Loader2,
+  X,
   Play,
   Pause,
-  RotateCcw,
-  CheckCircle2,
-  HelpCircle,
-  XCircle,
-  Sparkles,
-  ChevronRight,
-  ChevronLeft,
-  Flame,
   Award,
-  Loader2,
-  FileText,
-  Timer,
-  RefreshCw,
-  Eye,
+  Layers,
+  HelpCircle,
+  Flag,
+  LayoutGrid,
+  ChevronDown,
   Check,
-  X,
 } from 'lucide-react';
-import Link from 'next/link';
-import { useToast } from '@/components/Toast';
-
-import { finishExerciseSessionAction } from '@/app/actions/exercise';
 
 interface PracticeSessionRunnerProps {
   outlineId: string;
   slug: string;
+  projectTitle: string;
+  subchapterCode: string;
+  subchapterTitle: string;
+  parentChapter?: { id: string; code: string; title: string } | null;
   problems: any[];
   sessionId?: string;
+  exerciseId?: string;
+  initialIsTimed?: boolean;
 }
 
 export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
   outlineId,
   slug,
+  projectTitle,
+  subchapterCode,
+  subchapterTitle,
+  parentChapter,
   problems,
   sessionId,
+  exerciseId,
+  initialIsTimed = true,
 }) => {
+  const router = useRouter();
   const { toast } = useToast();
+
+  const breadcrumbs = buildBreadcrumbs({
+    project: { name: projectTitle, slug },
+    chapter: parentChapter,
+    subchapter: { id: outlineId, code: subchapterCode, title: subchapterTitle },
+    childPage: 'Practice Session',
+  });
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [seconds, setSeconds] = useState(0);
   const [isActive, setIsActive] = useState(true);
-  const [isTimed, setIsTimed] = useState(true);
+  const [isTimed, setIsTimed] = useState(initialIsTimed);
 
-  const [showHint, setShowHint] = useState(false);
-  const [isSurrendered, setIsSurrendered] = useState(false);
-  const [frictionScore, setFrictionScore] = useState(2);
-  const [userNotes, setUserNotes] = useState('');
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  // Store user's selected choice per question index: { 0: "Option text", 1: "Option text" }
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
+  const [userNotes, setUserNotes] = useState<Record<number, string>>({});
+
+  // Flag state per question index
+  const [flaggedQuestions, setFlaggedQuestions] = useState<Record<number, boolean>>({});
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submittedFeedback, setSubmittedFeedback] = useState<any | null>(null);
-  const [isCompleted, setIsCompleted] = useState(false);
-
-  const [attemptHistory, setAttemptHistory] = useState<
-    {
-      problem: any;
-      selectedOption: string | null;
-      isCorrect: boolean;
-      timeSpent: number;
-    }[]
-  >([]);
-
-  const [isReviewingMode, setIsReviewingMode] = useState(false);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [showNavModal, setShowNavModal] = useState(false);
 
   const currentProb = problems[currentIndex];
 
   // Stopwatch timer interval
   useEffect(() => {
     let interval: any = null;
-    if (isTimed && isActive && !isCompleted && currentProb) {
+    if (isTimed && isActive && currentProb) {
       interval = setInterval(() => {
-        setSeconds((prev) => {
-          const next = prev + 1;
-          if (next === 300) {
-            toast('Stopwatch Alert', '5 minutes elapsed on current problem rep.', 'timer', 5000);
-          } else if (next === 600) {
-            toast('Stopwatch Alert', '10 minutes elapsed. Consider taking a hint if stuck.', 'timer', 5000);
-          }
-          return next;
-        });
+        setSeconds((prev) => prev + 1);
       }, 1000);
     } else {
       clearInterval(interval);
     }
     return () => clearInterval(interval);
-  }, [isTimed, isActive, isCompleted, currentProb, toast]);
+  }, [isTimed, isActive, currentProb]);
 
   if (!currentProb || problems.length === 0) {
     return (
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center space-y-4">
-        <Sparkles className="w-10 h-10 text-indigo-400 mx-auto" />
-        <h2 className="text-xl font-bold text-white">No Problems in this Subchapter</h2>
-        <p className="text-sm text-slate-400">
-          Add problems to this subchapter using the Problem Set Manager before starting a practice session.
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-12 text-center space-y-4 shadow-m3-1">
+        <Sparkles className="w-10 h-10 text-indigo-600 mx-auto" />
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white">No Questions in this Exercise</h2>
+        <p className="text-xs text-slate-500 max-w-sm mx-auto">
+          Add questions to this exercise set before starting a practice session.
         </p>
         <Link
           href={`/projects/${slug}?sub=${outlineId}`}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-semibold"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl text-xs font-bold transition-all shadow-md shadow-indigo-600/30"
         >
           Return to Workspace
         </Link>
@@ -110,458 +115,459 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
     );
   }
 
-  const handleResetTimer = () => {
-    setSeconds(0);
-    setIsActive(true);
+  const handleOptionSelect = (optionText: string) => {
+    setSelectedAnswers((prev) => ({ ...prev, [currentIndex]: optionText }));
   };
 
-  const handleToggleTimer = () => {
-    setIsActive(!isActive);
+  const handleNotesChange = (text: string) => {
+    setUserNotes((prev) => ({ ...prev, [currentIndex]: text }));
   };
 
-  const handleSurrender = async () => {
-    setIsSurrendered(true);
-    setShowHint(true);
-    toast('Surrendered', 'Reference solution key revealed.', 'warning');
+  const toggleFlag = (index: number) => {
+    setFlaggedQuestions((prev) => ({ ...prev, [index]: !prev[index] }));
   };
 
-  const handleRetakeExercise = () => {
-    setCurrentIndex(0);
-    setSeconds(0);
-    setIsActive(true);
-    setShowHint(false);
-    setIsSurrendered(false);
-    setSubmittedFeedback(null);
-    setUserNotes('');
-    setSelectedOption(null);
-    setIsCompleted(false);
-    setIsReviewingMode(false);
-    setAttemptHistory([]);
-    toast('Exercise Reset', 'Starting retake for this exercise problem set.', 'info');
+  const handlePrevQuestion = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex((prev) => prev - 1);
+    }
   };
 
-  const handleSubmitAttempt = async (forcedOutcome?: 'clean_solve' | 'solved_with_hint' | 'surrendered') => {
+  const handleNextQuestion = () => {
+    if (currentIndex < problems.length - 1) {
+      setCurrentIndex((prev) => prev - 1 + 1 + 1 - 1 + 1);
+    }
+  };
+
+  // Evaluate accuracy and finish session attempt
+  const handleFinalSubmit = async () => {
     setIsSubmitting(true);
-    setSubmittedFeedback(null);
+    let correctCount = 0;
 
-    let parsedOpts: string[] = [];
-    if (currentProb.problem_type === 'multiple_choice' && currentProb.options_json) {
-      try {
-        parsedOpts = JSON.parse(currentProb.options_json);
-      } catch (e) {}
-    }
+    for (let i = 0; i < problems.length; i++) {
+      const prob = problems[i];
+      const selected = selectedAnswers[i] || null;
 
-    let isMcqCorrect = true;
-    if (currentProb.problem_type === 'multiple_choice') {
-      let correctIndices: number[] = [];
-      if (currentProb.correct_option_indices) {
-        try {
-          correctIndices = JSON.parse(currentProb.correct_option_indices);
-        } catch (e) {}
-      } else if (typeof currentProb.correct_option_index === 'number') {
-        correctIndices = [currentProb.correct_option_index];
+      let parsedOpts: string[] = [];
+      if (prob.problem_type === 'multiple_choice' && prob.options_json) {
+        try { parsedOpts = JSON.parse(prob.options_json); } catch (e) {}
       }
 
-      const chosenIndices = (selectedOption ? [selectedOption] : [])
-        .map((opt) => parsedOpts.indexOf(opt))
-        .filter((idx) => idx !== -1)
-        .sort((a, b) => a - b);
+      let isMcqCorrect = false;
+      if (prob.problem_type === 'multiple_choice' && selected) {
+        let correctIndices: number[] = [];
+        if (prob.correct_option_indices) {
+          try { correctIndices = JSON.parse(prob.correct_option_indices); } catch (e) {}
+        } else if (typeof prob.correct_option_index === 'number') {
+          correctIndices = [prob.correct_option_index];
+        }
 
-      if (correctIndices.length > 0) {
-        isMcqCorrect =
-          chosenIndices.length === correctIndices.length &&
-          chosenIndices.every((val, idx) => val === correctIndices[idx]);
+        const chosenIndex = parsedOpts.indexOf(selected);
+        if (correctIndices.length > 0 && chosenIndex !== -1) {
+          isMcqCorrect = correctIndices.includes(chosenIndex);
+        }
+      }
+
+      if (isMcqCorrect) correctCount++;
+
+      // Log attempt into telemetry DB
+      const outcome = isMcqCorrect ? 'clean_solve' : 'surrendered';
+      await logAttemptAction(
+        prob.id,
+        outlineId,
+        Math.round(seconds / Math.max(1, problems.length)),
+        outcome,
+        1,
+        selected ? `Selected Choice: ${selected}` : ''
+      );
+    }
+
+    const targetExId = exerciseId || currentProb.exercise_id || outlineId;
+    let activeSessionId = sessionId;
+
+    if (!activeSessionId) {
+      const startRes = await startExerciseSessionAction(targetExId, outlineId, isTimed);
+      if (startRes?.sessionId) {
+        activeSessionId = startRes.sessionId;
       }
     }
 
-    const outcome = forcedOutcome || (!isMcqCorrect || isSurrendered ? 'surrendered' : showHint ? 'solved_with_hint' : 'clean_solve');
-
-    // Track attempt history for grading ratio
-    const currentIsCorrect = outcome === 'clean_solve' || outcome === 'solved_with_hint';
-    setAttemptHistory((prev) => [
-      ...prev,
-      {
-        problem: currentProb,
-        selectedOption,
-        isCorrect: currentIsCorrect,
-        timeSpent: seconds,
-      },
-    ]);
-
-    const res = await logAttemptAction(
-      currentProb.id,
-      outlineId,
-      seconds,
-      outcome,
-      frictionScore,
-      selectedOption ? `Selected Choice: ${selectedOption}\nNotes: ${userNotes}` : userNotes
-    );
+    if (activeSessionId) {
+      await finishExerciseSessionAction(activeSessionId, correctCount, problems.length, seconds);
+    }
 
     setIsSubmitting(false);
+    setShowLeaveModal(false);
+    toast('Exercise Submitted!', `Finished with ${correctCount}/${problems.length} correct answers.`, 'success');
 
-    if (res.error) {
-      toast('Error Logging Attempt', res.error, 'error');
-      return;
-    }
-
-    if (currentIsCorrect) {
-      toast('Correct Answer!', `Clean solve logged in ${formatSecondsToHHMMSS(seconds)}.`, 'success');
-    } else if (outcome === 'surrendered' && !isMcqCorrect) {
-      toast('Incorrect Answer', 'Choice was wrong. Solution key revealed below.', 'error');
-      setShowHint(true);
-    }
-
-    if (res.aiFeedback) {
-      setSubmittedFeedback(res.aiFeedback);
-    }
-
-    if (currentIndex + 1 < problems.length) {
-      setTimeout(() => {
-        setCurrentIndex((prev) => prev + 1);
-        setSeconds(0);
-        setShowHint(false);
-        setIsSurrendered(false);
-        setSubmittedFeedback(null);
-        setUserNotes('');
-        setSelectedOption(null);
-      }, 2500);
+    // Route to results review page
+    if (activeSessionId) {
+      router.push(`/projects/${slug}/outlines/${outlineId}/exercise/${targetExId}/review/${activeSessionId}`);
+      router.refresh();
     } else {
-      setIsCompleted(true);
-      if (sessionId) {
-        const fullHistory = [
-          ...attemptHistory,
-          { problem: currentProb, selectedOption, isCorrect: currentIsCorrect, timeSpent: seconds },
-        ];
-        const correctCount = fullHistory.filter((h) => h.isCorrect).length;
-        await finishExerciseSessionAction(sessionId, correctCount, problems.length, seconds);
-      }
-      toast('Session Complete!', 'Exercise problem set finished.', 'success', 6000);
+      router.push(`/projects/${slug}?sub=${outlineId}`);
     }
+  };
+
+  const handleAbandonExercise = () => {
+    setShowLeaveModal(false);
+    toast('Exercise Abandoned', 'Session left without logging score.', 'info');
+    router.push(`/projects/${slug}?sub=${outlineId}`);
   };
 
   let parsedOptions: string[] = [];
   if (currentProb.problem_type === 'multiple_choice' && currentProb.options_json) {
-    try {
-      parsedOptions = JSON.parse(currentProb.options_json);
-    } catch {}
+    try { parsedOptions = JSON.parse(currentProb.options_json); } catch (e) {}
   }
 
-  // Calculate grading ratio
-  const correctCount = attemptHistory.filter((a) => a.isCorrect).length;
-  const totalCount = attemptHistory.length || problems.length;
-  const percentage = Math.round((correctCount / Math.max(1, totalCount)) * 100);
+  const currentSelected = selectedAnswers[currentIndex] || null;
+  const answeredCount = Object.keys(selectedAnswers).length;
+  const flaggedCount = Object.values(flaggedQuestions).filter(Boolean).length;
+
+  const getSquareButtonStyle = (pIdx: number) => {
+    const isCurrent = pIdx === currentIndex;
+    const isFlagged = Boolean(flaggedQuestions[pIdx]);
+    const isAnswered = Boolean(selectedAnswers[pIdx]);
+
+    if (isCurrent) {
+      return 'bg-violet-600 text-white shadow-md shadow-violet-600/30 ring-2 ring-violet-400 scale-105 z-10 font-black';
+    }
+    if (isFlagged) {
+      return 'bg-amber-400 text-amber-950 font-black border border-amber-500 hover:bg-amber-300 dark:bg-amber-400 dark:text-slate-950 shadow-xs';
+    }
+    if (isAnswered) {
+      return 'bg-emerald-500 text-white font-bold border border-emerald-600 hover:bg-emerald-400 dark:bg-emerald-600 shadow-xs';
+    }
+    return 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/80';
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-200">
       
-      {/* Stopwatch & Telemetry Bar */}
-      <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Light Theme Header & Timer Bar */}
+      <Breadcrumb items={breadcrumbs} />
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-m3-1 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         
-        {/* Step Indicator */}
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-mono font-bold uppercase px-3 py-1 rounded-full bg-indigo-950 text-indigo-400 border border-indigo-800">
-            Rep {currentIndex + 1} of {problems.length}
-          </span>
-          <span className="text-xs font-mono text-amber-400 font-bold">
-            Difficulty {currentProb.difficulty}/5
-          </span>
-        </div>
-
-        {/* Real-time Stopwatch Controls */}
+        {/* Breadcrumb & Leave Button */}
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setIsTimed(!isTimed)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
-              isTimed
-                ? 'bg-indigo-950 text-indigo-300 border-indigo-800'
-                : 'bg-slate-800 text-slate-400 border-slate-700'
-            }`}
+            type="button"
+            onClick={() => setShowLeaveModal(true)}
+            className="p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-rose-600 transition-colors"
+            title="Leave Exercise"
           >
-            {isTimed ? 'Timed Mode' : 'Untimed Practice'}
+            <ArrowLeft className="w-4 h-4" />
           </button>
-
-          {isTimed && (
-            <div className="flex items-center gap-4 bg-slate-950/80 px-5 py-2.5 rounded-2xl border border-slate-800">
-              <Timer className="w-5 h-5 text-indigo-400 animate-pulse" />
-              <span className="font-mono text-2xl font-black text-white tracking-widest">
-                {formatSecondsToHHMMSS(seconds)}
-              </span>
-              <div className="flex items-center gap-1 pl-2 border-l border-slate-800">
-                <button
-                  onClick={handleToggleTimer}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
-                  title={isActive ? 'Pause Timer' : 'Start Timer'}
-                >
-                  {isActive ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                </button>
-                <button
-                  onClick={handleResetTimer}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
-                  title="Reset Timer"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
+          <div>
+            <h1 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
+              {subchapterTitle}
+            </h1>
+          </div>
         </div>
 
+        {/* Stopwatch & Question Count & Navigation Indicator */}
+        <div className="flex items-center gap-2.5">
+          {isTimed && (
+            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-violet-50 dark:bg-violet-950/60 border border-violet-200/60 dark:border-violet-800 text-violet-700 dark:text-violet-300 font-mono text-xs font-bold">
+              <Clock className="w-3.5 h-3.5 text-violet-600 animate-pulse" />
+              <span>{formatSecondsToHHMMSS(seconds)}</span>
+              <button
+                type="button"
+                onClick={() => setIsActive(!isActive)}
+                className="ml-1 text-violet-500 hover:text-violet-700"
+                title={isActive ? 'Pause timer' : 'Resume timer'}
+              >
+                {isActive ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+              </button>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setShowNavModal(true)}
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-mono text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shadow-xs"
+            title="Open Question Navigation Menu"
+          >
+            <LayoutGrid className="w-3.5 h-3.5 text-violet-600" />
+            <span>Question Navigation ({answeredCount}/{problems.length})</span>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+          </button>
+        </div>
       </div>
 
-      {/* Completion Dashboard: Score Ratio + Review & Retake Options */}
-      {isCompleted ? (
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 sm:p-10 space-y-8 shadow-2xl animate-in zoom-in-95 duration-300">
-          
-          <div className="text-center space-y-4">
-            <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto border ${
-              percentage >= 80
-                ? 'bg-emerald-950 text-emerald-400 border-emerald-800'
-                : percentage >= 50
-                ? 'bg-amber-950 text-amber-400 border-amber-800'
-                : 'bg-rose-950 text-rose-400 border-rose-800'
-            }`}>
-              <Award className="w-10 h-10" />
-            </div>
-
-            <div className="space-y-2">
-              <h2 className="text-2xl font-bold text-white">Exercise Session Completed!</h2>
-              {/* Grading System Ratio */}
-              <div className="text-3xl font-black font-mono text-white tracking-tight">
-                Score: <span className={percentage >= 80 ? 'text-emerald-400' : percentage >= 50 ? 'text-amber-400' : 'text-rose-400'}>{correctCount} / {totalCount}</span> ({percentage}%)
-              </div>
-              <p className="text-xs text-slate-400 max-w-md mx-auto">
-                Ratio of correct answers evaluated. Telemetry logged into your study archive.
-              </p>
-            </div>
-
-            {/* Actions: Dedicated Review Page, Retake, Return */}
-            <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
-              {sessionId && (
-                <Link
-                  href={`/projects/${slug}/outlines/${outlineId}/exercise/${currentProb?.exercise_id || problems[0]?.exercise_id || outlineId}/review/${sessionId}`}
-                  className="px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 flex items-center gap-2 transition-all m3-ripple"
-                >
-                  <Eye className="w-4 h-4 text-white" />
-                  <span>Open Anti-Spoiler Review Page</span>
-                </Link>
-              )}
-
-              <button
-                onClick={() => setIsReviewingMode(!isReviewingMode)}
-                className="px-5 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 flex items-center gap-2 transition-all"
-              >
-                <Eye className="w-4 h-4 text-indigo-400" />
-                <span>{isReviewingMode ? 'Hide Inline Review' : 'Inline Quick Review'}</span>
-              </button>
-
-              <button
-                onClick={handleRetakeExercise}
-                className="px-5 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 flex items-center gap-2 transition-all"
-              >
-                <RefreshCw className="w-4 h-4 text-amber-400" />
-                <span>Retake Exercise Set</span>
-              </button>
-
-              <Link
-                href={`/projects/${slug}?sub=${outlineId}`}
-                className="px-5 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold border border-slate-700 flex items-center gap-2 transition-all"
-              >
-                <span>Return to Workspace</span>
-                <ChevronRight className="w-4 h-4" />
-              </Link>
-            </div>
-          </div>
-
-          {/* Exercise Review Question Breakdown */}
-          {isReviewingMode && (
-            <div className="space-y-4 pt-6 border-t border-slate-800 animate-in fade-in duration-200">
-              <h3 className="text-sm font-bold text-white font-mono uppercase tracking-wider">
-                Exercise Question-by-Question Review
-              </h3>
-              <div className="space-y-4">
-                {attemptHistory.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="p-5 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-3 text-xs"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono font-bold text-indigo-400">Question #{idx + 1}</span>
-                      {item.isCorrect ? (
-                        <span className="inline-flex items-center gap-1 font-bold text-emerald-400">
-                          <Check className="w-4 h-4" /> Correct Answer
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 font-bold text-rose-400">
-                          <X className="w-4 h-4" /> Incorrect Answer
-                        </span>
-                      )}
-                    </div>
-
-                    <MathRenderer content={item.problem.problem_statement} />
-
-                    {item.selectedOption && (
-                      <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-slate-300">
-                        <span className="font-semibold text-slate-400">Your Choice: </span>
-                        <MathRenderer content={item.selectedOption} />
-                      </div>
-                    )}
-
-                    <div className="p-3 rounded-xl bg-indigo-950/40 border border-indigo-900/60 space-y-1 text-slate-300">
-                      <span className="font-bold text-indigo-300">Solution Guide:</span>
-                      <MathRenderer content={item.problem.solution_guide} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-        </div>
-      ) : (
-        /* Active Problem Workspace */
-        <div className="space-y-6">
-          
-          {/* Statement Render Card */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-4 shadow-xl">
-            <span className="text-xs font-mono uppercase tracking-wider text-slate-400 font-semibold">
-              Problem Statement ({currentProb.problem_type.replace('_', ' ')})
+      {/* Current Question Card */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-m3-1 space-y-6">
+        
+        {/* Question Card Header */}
+        <div className="flex items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <span className="w-8 h-8 rounded-2xl bg-violet-50 dark:bg-violet-950/60 border border-violet-200/60 text-violet-600 font-black text-xs flex items-center justify-center font-mono">
+              #{currentIndex + 1}
             </span>
-            <div className="p-6 rounded-2xl bg-slate-950/60 border border-slate-800/80 text-white text-base">
-              <MathRenderer content={currentProb.problem_statement} />
-            </div>
-
-            {/* MCQ Options Rendering */}
-            {currentProb.problem_type === 'multiple_choice' && parsedOptions.length > 0 && (
-              <div className="space-y-3 pt-2">
-                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Select Option</span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {parsedOptions.map((opt, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setSelectedOption(opt)}
-                      className={`p-4 rounded-2xl border text-left text-xs font-semibold transition-all ${
-                        selectedOption === opt
-                          ? 'bg-indigo-600/20 border-indigo-500 text-indigo-300 shadow-md'
-                          : 'bg-slate-950/40 border-slate-800 text-slate-300 hover:border-slate-700'
-                      }`}
-                    >
-                      <MathRenderer content={opt} />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono">
+              {currentProb.problem_type.replace('_', ' ')}
+            </span>
+            <span className="text-xs text-amber-500 font-bold font-mono">
+              Diff {currentProb.difficulty}/5
+            </span>
           </div>
 
-          {/* Action Row: Hint / Surrender / Friction Scale */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-6 shadow-xl">
-            
-            {/* Buttons */}
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setShowHint(!showHint)}
-                  className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-semibold flex items-center gap-2 transition-colors border border-amber-500/20"
-                >
-                  <HelpCircle className="w-4 h-4" />
-                  <span>{showHint ? 'Hide Hint' : 'Need Hint'}</span>
-                </button>
+          <div className="flex items-center gap-3">
+            {/* Flag Question Button */}
+            <button
+              type="button"
+              onClick={() => toggleFlag(currentIndex)}
+              className={`px-3 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border ${
+                flaggedQuestions[currentIndex]
+                  ? 'bg-amber-100 dark:bg-amber-950/80 border-amber-400 text-amber-900 dark:text-amber-300 shadow-xs'
+                  : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-950/40'
+              }`}
+              title={flaggedQuestions[currentIndex] ? 'Unflag Question' : 'Flag Question for Review'}
+            >
+              <Flag className={`w-3.5 h-3.5 ${flaggedQuestions[currentIndex] ? 'fill-amber-500 text-amber-500' : ''}`} />
+              <span>{flaggedQuestions[currentIndex] ? 'Flagged' : 'Flag Question'}</span>
+            </button>
 
-                <button
-                  onClick={handleSurrender}
-                  className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-rose-400 text-xs font-semibold flex items-center gap-2 transition-colors border border-rose-500/20"
-                >
-                  <XCircle className="w-4 h-4" />
-                  <span>Surrender & Show Key</span>
-                </button>
-              </div>
+            <span className="text-xs text-slate-400 font-mono hidden sm:inline">
+              Question {currentIndex + 1} of {problems.length}
+            </span>
+          </div>
+        </div>
 
-              {/* Friction Rating Scale */}
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-semibold text-slate-400 flex items-center gap-1">
-                  <Flame className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Cognitive Friction (1-5):</span>
-                </span>
-                <div className="flex items-center gap-1">
-                  {[1, 2, 3, 4, 5].map((score) => (
-                    <button
-                      key={score}
-                      onClick={() => setFrictionScore(score)}
-                      className={`w-8 h-8 rounded-xl font-mono font-bold text-xs transition-all ${
-                        frictionScore === score
-                          ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30 scale-105'
-                          : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+        {/* Problem Statement Box */}
+        <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200 leading-relaxed">
+          <MathRenderer content={currentProb.problem_statement} />
+        </div>
+
+        {/* Options List for Multiple Choice */}
+        {currentProb.problem_type === 'multiple_choice' && parsedOptions.length > 0 && (
+          <div className="space-y-3">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              Select Your Answer Choice
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {parsedOptions.map((optText, oIdx) => {
+                const isSelected = currentSelected === optText;
+                return (
+                  <button
+                    key={oIdx}
+                    type="button"
+                    onClick={() => handleOptionSelect(optText)}
+                    className={`p-4 rounded-2xl border text-xs text-left transition-all flex items-center gap-3 ${
+                      isSelected
+                        ? 'bg-violet-50 dark:bg-violet-950/60 border-2 border-violet-600 text-violet-950 dark:text-violet-100 font-bold shadow-md shadow-violet-600/10'
+                        : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300 hover:bg-slate-100/60'
+                    }`}
+                  >
+                    <span
+                      className={`w-6 h-6 rounded-full font-mono font-bold text-xs flex items-center justify-center flex-shrink-0 ${
+                        isSelected
+                          ? 'bg-violet-600 text-white shadow-sm'
+                          : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
                       }`}
                     >
-                      {score}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                      {String.fromCharCode(65 + oIdx)}
+                    </span>
+                    <div className="flex-1">
+                      <MathRenderer content={optText} />
+                    </div>
+                  </button>
+                );
+              })}
             </div>
+          </div>
+        )}
 
-            {/* Revealed Hint / Solution Drawer */}
-            {(showHint || isSurrendered) && (
-              <div className="p-6 rounded-2xl bg-slate-950/80 border border-slate-800 text-sm space-y-3 animate-in fade-in duration-200">
-                <span className="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider">
-                  Reference Derivation / Key
-                </span>
-                <MathRenderer content={currentProb.solution_guide} />
-              </div>
-            )}
+        {/* Notes / Derivation Steps Input for Essay or Calculation */}
+        {currentProb.problem_type !== 'multiple_choice' && (
+          <div className="space-y-2">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              Your Answer / Derivation Notes (LaTeX supported)
+            </label>
+            <textarea
+              rows={4}
+              value={userNotes[currentIndex] || ''}
+              onChange={(e) => handleNotesChange(e.target.value)}
+              placeholder="Write your answer, steps, or final numeric calculation here..."
+              className="w-full p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-violet-500"
+            />
+          </div>
+        )}
 
-            {/* Student Scratchpad / Notes */}
-            <div className="space-y-2">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Derivation Notes / Answer Key for AI Grading Telemetry</span>
-              </label>
-              <textarea
-                rows={3}
-                value={userNotes}
-                onChange={(e) => setUserNotes(e.target.value)}
-                placeholder="Type your derivation steps or notes here for AI feedback evaluation..."
-                className="w-full p-4 bg-slate-950/80 border border-slate-800 rounded-2xl text-xs font-mono text-white placeholder-slate-600 focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
+        {/* Standard Navigation Bar (Previous, Next, Submit) */}
+        <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
+          <button
+            type="button"
+            onClick={handlePrevQuestion}
+            disabled={currentIndex === 0}
+            className="px-5 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-40 text-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-1.5 transition-all"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            <span>Previous</span>
+          </button>
 
-            {/* AI Feedback Display Toast */}
-            {submittedFeedback && (
-              <div className="p-4 rounded-2xl bg-indigo-950/80 border border-indigo-800 text-xs space-y-1.5 text-indigo-200 animate-in fade-in">
-                <div className="flex items-center gap-2 font-bold text-indigo-300">
-                  <Sparkles className="w-4 h-4 text-indigo-400" />
-                  <span>AI Telemetry Coach Feedback ({submittedFeedback.correctness})</span>
-                </div>
-                <p className="text-slate-300 font-medium">{submittedFeedback.verdict}</p>
-                <p className="text-indigo-400 italic">{submittedFeedback.suggestions}</p>
-              </div>
-            )}
-
-            {/* Submit Action */}
-            <div className="flex justify-end pt-2">
+          <div className="flex items-center gap-3">
+            {currentIndex < problems.length - 1 ? (
               <button
-                onClick={() => handleSubmitAttempt()}
-                disabled={isSubmitting}
-                className="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xl shadow-indigo-600/30 flex items-center gap-2 transition-all m3-ripple disabled:opacity-50"
+                type="button"
+                onClick={() => setCurrentIndex((prev) => prev + 1)}
+                className="px-6 py-2.5 rounded-2xl bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 text-white dark:text-slate-900 text-xs font-bold flex items-center gap-1.5 transition-all shadow-md"
               >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Logging Rep & Telemetry...</span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Log Rep & Next Problem</span>
-                  </>
-                )}
+                <span>Next Question</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleFinalSubmit}
+                disabled={isSubmitting}
+                className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold flex items-center gap-2 transition-all shadow-lg shadow-violet-600/30 disabled:opacity-50 m3-ripple"
+              >
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Award className="w-4 h-4" />}
+                <span>{isSubmitting ? 'Submitting…' : 'Submit Exercise'}</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Question Navigation Modal Grid Popup */}
+      {showNavModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl space-y-5 max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-violet-50 dark:bg-violet-950/60 text-violet-600 border border-violet-200/60">
+                  <LayoutGrid className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">Question Navigation</h3>
+                  <p className="text-xs text-slate-500">{problems.length} Total Questions in Exercise</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowNavModal(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
               </button>
             </div>
 
+            {/* Status Legend */}
+            <div className="flex flex-wrap items-center gap-4 text-xs font-semibold px-1 py-1 text-slate-600 dark:text-slate-300 border-b border-slate-100 dark:border-slate-800/60 pb-3">
+              <div className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded-md bg-violet-600 shadow-xs" />
+                <span>Current ({currentIndex + 1})</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded-md bg-emerald-500 border border-emerald-600" />
+                <span>Answered ({answeredCount})</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded-md bg-amber-400 border border-amber-500" />
+                <span>Flagged ({flaggedCount})</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-3.5 h-3.5 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700" />
+                <span>Unanswered ({problems.length - answeredCount})</span>
+              </div>
+            </div>
+
+            {/* Question Grid */}
+            <div className="overflow-y-auto custom-scrollbar flex-1 p-1">
+              <div className="grid grid-cols-5 sm:grid-cols-10 gap-2 font-mono text-xs">
+                {problems.map((p, pIdx) => {
+                  const isCurrent = pIdx === currentIndex;
+                  const isFlagged = Boolean(flaggedQuestions[pIdx]);
+                  const isAnswered = Boolean(selectedAnswers[pIdx]);
+
+                  return (
+                    <button
+                      key={p.id || pIdx}
+                      type="button"
+                      onClick={() => {
+                        setCurrentIndex(pIdx);
+                        setShowNavModal(false);
+                      }}
+                      className={`h-10 rounded-xl flex items-center justify-center gap-1 transition-all relative ${getSquareButtonStyle(
+                        pIdx
+                      )}`}
+                      title={`Go to Question ${pIdx + 1}${isFlagged ? ' (Flagged)' : ''}${isAnswered ? ' (Answered)' : ''}`}
+                    >
+                      <span>Q{pIdx + 1}</span>
+                      {isFlagged ? (
+                        <Flag className="w-3 h-3 fill-amber-950 text-amber-950" />
+                      ) : isAnswered && !isCurrent ? (
+                        <Check className="w-3 h-3 text-white" />
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowNavModal(false)}
+                className="px-5 py-2 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 font-bold text-xs transition-all"
+              >
+                Close Navigation
+              </button>
+            </div>
           </div>
         </div>
       )}
 
+      {/* Confirm Leave Modal */}
+      {showLeaveModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-500" />
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Leave Exercise Session?</h3>
+              </div>
+              <button onClick={() => setShowLeaveModal(false)} className="p-1 rounded-xl text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+              You are currently in an active exercise session. What would you like to do with your attempt?
+            </p>
+
+            <div className="space-y-2.5">
+              <button
+                type="button"
+                onClick={handleFinalSubmit}
+                disabled={isSubmitting}
+                className="w-full py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-indigo-600/30 transition-all disabled:opacity-50"
+              >
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Award className="w-4 h-4" />}
+                <span>{isSubmitting ? 'Submitting…' : 'Submit'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleAbandonExercise}
+                className="w-full py-3 px-4 rounded-2xl bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 text-rose-600 dark:text-rose-400 border border-rose-200/80 font-bold text-xs transition-all"
+              >
+                Abandon
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowLeaveModal(false)}
+                className="w-full py-2.5 px-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs hover:bg-slate-200 transition-all"
+              >
+                Resume
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+

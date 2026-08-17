@@ -3,6 +3,8 @@ import { db } from '@/db';
 import { projects, outlines } from '@/db/schema';
 import { eq, and, asc } from 'drizzle-orm';
 import { Navbar } from '@/components/Navbar';
+import { Breadcrumb } from '@/components/Breadcrumb';
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { getCurrentUser } from '@/lib/auth';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
@@ -32,6 +34,11 @@ export default async function SettingsPage(props: SettingsPageProps) {
     .orderBy(asc(outlines.sort_order))
     .all();
 
+  const breadcrumbs = buildBreadcrumbs({
+    project: { name: project.name, slug: project.slug },
+    childPage: 'Project Settings',
+  });
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
       <Navbar username={user?.username || 'admin'} fullName={user?.fullName} />
@@ -39,21 +46,24 @@ export default async function SettingsPage(props: SettingsPageProps) {
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         
         {/* Header Breadcrumbs */}
-        <div className="flex items-center gap-3">
-          <Link
-            href={`/projects/${project.slug}`}
-            className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-indigo-600 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-              <Settings className="w-5 h-5 text-indigo-600" />
-              <span>Project & Outline Settings</span>
-            </h1>
-            <p className="text-xs text-slate-500 font-mono">
-              Manage syllabus taxonomy for {project.name}
-            </p>
+        <div className="space-y-2">
+          <Breadcrumb items={breadcrumbs} />
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/projects/${project.slug}`}
+              className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-indigo-600 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Link>
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                <Settings className="w-5 h-5 text-indigo-600" />
+                <span>Project &amp; Outline Settings</span>
+              </h1>
+              <p className="text-xs text-slate-500 font-mono">
+                Manage syllabus taxonomy for {project.name}
+              </p>
+            </div>
           </div>
         </div>
 

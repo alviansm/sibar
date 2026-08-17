@@ -13,6 +13,8 @@ import { GeminiOCRModal } from '../GeminiOCRModal';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { useToast } from '@/components/Toast';
 import { LottieEmptyState } from '@/components/LottieEmptyState';
+import { Breadcrumb } from '@/components/Breadcrumb';
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import {
   ArrowLeft,
   Plus,
@@ -37,6 +39,7 @@ interface ExampleManagerWorkspaceProps {
   projectTitle: string;
   subchapterCode: string;
   subchapterTitle: string;
+  parentChapter?: { id: string; code: string; title: string } | null;
   initialExamples: any[];
 }
 
@@ -46,9 +49,17 @@ export const ExampleManagerWorkspace: React.FC<ExampleManagerWorkspaceProps> = (
   projectTitle,
   subchapterCode,
   subchapterTitle,
+  parentChapter,
   initialExamples,
 }) => {
   const { toast } = useToast();
+
+  const breadcrumbs = buildBreadcrumbs({
+    project: { name: projectTitle, slug },
+    chapter: parentChapter,
+    subchapter: { id: outlineId, code: subchapterCode, title: subchapterTitle },
+    childPage: 'Example Problems',
+  });
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [statement, setStatement] = useState('');
@@ -249,8 +260,9 @@ export const ExampleManagerWorkspace: React.FC<ExampleManagerWorkspaceProps> = (
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Top Header Breadcrumb & Actions */}
+      <Breadcrumb items={breadcrumbs} />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-m3-1">
         <div className="flex items-center gap-3">
           <Link
@@ -260,11 +272,6 @@ export const ExampleManagerWorkspace: React.FC<ExampleManagerWorkspaceProps> = (
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
-            <div className="flex items-center gap-2 text-xs font-mono text-amber-600 dark:text-amber-400 font-semibold">
-              <span>{projectTitle}</span>
-              <span>/</span>
-              <span>{subchapterCode}</span>
-            </div>
             <h1 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
               <Lightbulb className="w-5 h-5 text-amber-500" />
               <span>Example Problem Builder ({initialExamples.length})</span>
@@ -440,22 +447,40 @@ export const ExampleManagerWorkspace: React.FC<ExampleManagerWorkspaceProps> = (
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-            <button
-              type="button"
-              onClick={() => setIsFormOpen(false)}
-              className="px-5 py-2.5 rounded-2xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isPending}
-              className="px-6 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold shadow-md shadow-amber-500/30 flex items-center gap-2"
-            >
-              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              <span>{editingId ? 'Save Changes' : 'Create Example'}</span>
-            </button>
+          <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
+            <div>
+              {editingId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProblemToDeleteId(editingId);
+                    setIsFormOpen(false);
+                  }}
+                  className="px-4 py-2.5 rounded-2xl border border-rose-200 text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-1.5 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete Example</span>
+                </button>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsFormOpen(false)}
+                className="px-5 py-2.5 rounded-2xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isPending}
+                className="px-6 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold shadow-md shadow-amber-500/30 flex items-center gap-2"
+              >
+                {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                <span>{editingId ? 'Save Changes' : 'Create Example'}</span>
+              </button>
+            </div>
           </div>
         </form>
       )}

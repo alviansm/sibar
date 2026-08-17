@@ -23,6 +23,8 @@ import {
   Lightbulb,
 } from 'lucide-react';
 import { MathRenderer } from '@/components/MathRenderer';
+import { Breadcrumb } from '@/components/Breadcrumb';
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { SidebarOutlineTree } from './SidebarOutlineTree';
 import { LottieEmptyState } from '@/components/LottieEmptyState';
 import { SubchapterModulesGrid } from './SubchapterModulesGrid';
@@ -63,6 +65,18 @@ export default async function ProjectDetailPage(props: ProjectPageProps) {
   if (!activeSubchapter && subchapters.length > 0) {
     activeSubchapter = subchapters[0];
   }
+
+  const activeParentChapter = activeSubchapter && activeSubchapter.parent_id
+    ? chapters.find((c) => c.id === activeSubchapter.parent_id) || null
+    : null;
+
+  const breadcrumbs = activeSubchapter
+    ? buildBreadcrumbs({
+        project: { name: project.name, slug: project.slug },
+        chapter: activeParentChapter ? { id: activeParentChapter.id, code: activeParentChapter.code, title: activeParentChapter.title } : null,
+        subchapter: { id: activeSubchapter.id, code: activeSubchapter.code, title: activeSubchapter.title },
+      })
+    : buildBreadcrumbs({ project: { name: project.name, slug: project.slug } });
 
   const subchaptersWithProgress = subchapters.map((sub) => {
     let conceptsList: any[] = [];
@@ -149,6 +163,40 @@ export default async function ProjectDetailPage(props: ProjectPageProps) {
       .where(and(eq(exercise_sets.outline_id, activeSubchapter.id), eq(exercise_sets.is_deleted, 0)))
       .all();
 
+    // Auto-create exercise_sets for any orphan exercise_id present in exerciseRaw
+    const existingSetIds = new Set(rawSets.map((s) => s.id));
+    const orphanSetIds = Array.from(
+      new Set(exerciseRaw.map((p) => p.exercise_id).filter(Boolean) as string[])
+    ).filter((id) => !existingSetIds.has(id));
+
+    if (orphanSetIds.length > 0) {
+      const now = Math.floor(Date.now() / 1000);
+      for (const orphanId of orphanSetIds) {
+        db.insert(exercise_sets)
+          .values({
+            id: orphanId,
+            outline_id: activeSubchapter.id,
+            title: 'Textbook Exercise Set',
+            description: '',
+            passing_grade: 70,
+            is_timed: 1,
+            created_at: now,
+          })
+          .run();
+
+        rawSets.push({
+          id: orphanId,
+          outline_id: activeSubchapter.id,
+          title: 'Textbook Exercise Set',
+          description: '',
+          passing_grade: 70,
+          is_timed: 1,
+          is_deleted: 0,
+          created_at: now,
+        });
+      }
+    }
+
     activeExerciseSets = rawSets.map((exSet) => {
       const setProblems = exerciseRaw.filter((p) => p.exercise_id === exSet.id);
       const mcqCount = setProblems.filter((p) => p.problem_type === 'multiple_choice').length;
@@ -231,13 +279,7 @@ export default async function ProjectDetailPage(props: ProjectPageProps) {
               {/* Workspace Header & Action */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200/80 dark:border-slate-800">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-                    <Link href="/dashboard" className="hover:underline">Dashboard</Link>
-                    <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{project.name}</span>
-                    <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="font-mono text-indigo-600 dark:text-indigo-400 font-semibold">{activeSubchapter.code}</span>
-                  </div>
+                  <Breadcrumb items={breadcrumbs} className="mb-2" />
                   <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
                     <span>{activeSubchapter.title}</span>
                     <span className={`text-xs px-3 py-1 rounded-full font-semibold ${

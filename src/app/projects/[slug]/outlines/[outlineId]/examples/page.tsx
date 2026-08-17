@@ -44,6 +44,10 @@ export default async function ExamplesPage(props: ExamplesPageProps) {
     (p) => p.problem_kind === 'example' || (!p.exercise_id && p.problem_kind !== 'exercise')
   );
 
+  const parentChapter = outline.parent_id
+    ? db.select().from(outlines).where(and(eq(outlines.id, outline.parent_id), eq(outlines.is_deleted, 0))).get()
+    : null;
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
       <Navbar username={user?.username || 'admin'} fullName={user?.fullName} />
@@ -55,6 +59,7 @@ export default async function ExamplesPage(props: ExamplesPageProps) {
           projectTitle={project.name}
           subchapterCode={outline.code}
           subchapterTitle={outline.title}
+          parentChapter={parentChapter ? { id: parentChapter.id, code: parentChapter.code, title: parentChapter.title } : null}
           initialExamples={exampleProblems}
         />
       </main>

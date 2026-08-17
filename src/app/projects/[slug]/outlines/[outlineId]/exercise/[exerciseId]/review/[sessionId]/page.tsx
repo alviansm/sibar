@@ -1,6 +1,6 @@
 import React from 'react';
 import { db } from '@/db';
-import { outlines, projects, problems, exercise_session_attempts } from '@/db/schema';
+import { outlines, projects, problems, exercise_session_attempts, exercise_sets } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { Navbar } from '@/components/Navbar';
 import { getCurrentUser } from '@/lib/auth';
@@ -44,8 +44,15 @@ export default async function ExerciseReviewPage(props: ExerciseReviewPageProps)
     notFound();
   }
 
+  // Fetch exercise set details if available
+  const exerciseSet = db
+    .select()
+    .from(exercise_sets)
+    .where(and(eq(exercise_sets.id, params.exerciseId), eq(exercise_sets.is_deleted, 0)))
+    .get();
+
   // Fetch problems attached to this exercise set
-  const exerciseProblems = db
+  let exerciseProblems = db
     .select()
     .from(problems)
     .where(
@@ -57,6 +64,14 @@ export default async function ExerciseReviewPage(props: ExerciseReviewPageProps)
     )
     .all();
 
+  if (exerciseProblems.length === 0) {
+    exerciseProblems = db
+      .select()
+      .from(problems)
+      .where(and(eq(problems.outline_id, outline.id), eq(problems.is_deleted, 0)))
+      .all();
+  }
+
   // Fetch session attempt details
   const sessionAttempt = db
     .select()
@@ -65,7 +80,11 @@ export default async function ExerciseReviewPage(props: ExerciseReviewPageProps)
     .get();
 
   const exerciseTitle =
-    searchParams.title || `Exercise Set (${params.exerciseId.substring(0, 8)})`;
+    searchParams.title || exerciseSet?.title || outline.title || `Exercise Set (${params.exerciseId.substring(0, 8)})`;
+
+  const parentChapter = outline.parent_id
+    ? db.select().from(outlines).where(and(eq(outlines.id, outline.parent_id), eq(outlines.is_deleted, 0))).get()
+    : null;
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
@@ -79,6 +98,7 @@ export default async function ExerciseReviewPage(props: ExerciseReviewPageProps)
           projectTitle={project.name}
           subchapterCode={outline.code}
           subchapterTitle={outline.title}
+          parentChapter={parentChapter ? { id: parentChapter.id, code: parentChapter.code, title: parentChapter.title } : null}
           exerciseTitle={exerciseTitle}
           problems={exerciseProblems}
           sessionAttempt={sessionAttempt || null}

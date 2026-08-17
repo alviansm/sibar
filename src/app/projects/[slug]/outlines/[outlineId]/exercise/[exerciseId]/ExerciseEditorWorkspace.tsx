@@ -8,12 +8,15 @@ import {
   deleteProblemAction,
   importProblemSetListAction,
 } from '@/app/actions/problems';
-import { updateExerciseSetAction } from '@/app/actions/exercise';
+import { useRouter } from 'next/navigation';
+import { updateExerciseSetAction, deleteExerciseSetAction } from '@/app/actions/exercise';
 import { MathRenderer } from '@/components/MathRenderer';
 import { GeminiOCRModal } from '../../GeminiOCRModal';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { useToast } from '@/components/Toast';
 import { LottieEmptyState } from '@/components/LottieEmptyState';
+import { Breadcrumb } from '@/components/Breadcrumb';
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import {
   ArrowLeft,
   Plus,
@@ -43,6 +46,7 @@ interface ExerciseEditorWorkspaceProps {
   projectTitle: string;
   subchapterCode: string;
   subchapterTitle: string;
+  parentChapter?: { id: string; code: string; title: string } | null;
   exerciseTitle: string;
   exerciseDescription: string;
   passingGrade: number;
@@ -57,13 +61,23 @@ export const ExerciseEditorWorkspace: React.FC<ExerciseEditorWorkspaceProps> = (
   projectTitle,
   subchapterCode,
   subchapterTitle,
+  parentChapter,
   exerciseTitle: initialExerciseTitle,
   exerciseDescription: initialExerciseDescription,
   passingGrade: initialPassingGrade,
   isTimed: initialIsTimed,
   initialProblems,
 }) => {
+  const router = useRouter();
   const { toast } = useToast();
+  const [showDeleteSetConfirm, setShowDeleteSetConfirm] = useState(false);
+
+  const breadcrumbs = buildBreadcrumbs({
+    project: { name: projectTitle, slug },
+    chapter: parentChapter,
+    subchapter: { id: outlineId, code: subchapterCode, title: subchapterTitle },
+    exerciseSet: { id: exerciseId, title: initialExerciseTitle },
+  });
 
   // Exercise metadata (editable)
   const [metaTitle, setMetaTitle] = useState(initialExerciseTitle);
@@ -84,6 +98,20 @@ export const ExerciseEditorWorkspace: React.FC<ExerciseEditorWorkspaceProps> = (
     setIsSavingMeta(false);
     if (res.error) toast('Save Failed', res.error, 'error');
     else toast('Saved', 'Exercise settings updated.', 'success');
+  };
+
+  const handleDeleteEntireExerciseSet = async () => {
+    setIsPending(true);
+    const res = await deleteExerciseSetAction(exerciseId);
+    setIsPending(false);
+    setShowDeleteSetConfirm(false);
+
+    if (res.error) {
+      toast('Delete Failed', res.error, 'error');
+    } else {
+      toast('Exercise Set Deleted', 'Soft-deleted exercise set and all questions.', 'info');
+      router.push(`/projects/${slug}/outlines/${outlineId}/exercise`);
+    }
   };
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -293,22 +321,18 @@ export const ExerciseEditorWorkspace: React.FC<ExerciseEditorWorkspaceProps> = (
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Top Header Breadcrumb & Actions */}
+      <Breadcrumb items={breadcrumbs} />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-m3-1">
         <div className="flex items-center gap-3">
           <Link
-            href={`/projects/${slug}?sub=${outlineId}`}
+            href={`/projects/${slug}/outlines/${outlineId}/exercise`}
             className="p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
-            <div className="flex items-center gap-2 text-xs font-mono text-indigo-600 dark:text-indigo-400 font-semibold">
-              <span>{projectTitle}</span>
-              <span>/</span>
-              <span>{subchapterCode}</span>
-            </div>
             <h1 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
               <Layers className="w-5 h-5 text-indigo-600" />
               <span>{metaTitle} ({initialProblems.length} Problems)</span>
@@ -316,16 +340,28 @@ export const ExerciseEditorWorkspace: React.FC<ExerciseEditorWorkspaceProps> = (
           </div>
         </div>
 
-        {/* Expand meta editing */}
-        <button
-          type="button"
-          onClick={() => setMetaExpanded((v) => !v)}
-          className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
-        >
-          <Edit3 className="w-3.5 h-3.5" />
-          <span>{metaExpanded ? 'Close Settings' : 'Edit Settings'}</span>
-          {metaExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-        </button>
+        {/* Actions: Edit Settings & Delete Exercise Set */}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setMetaExpanded((v) => !v)}
+            className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-600 transition-colors px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800"
+          >
+            <Edit3 className="w-3.5 h-3.5" />
+            <span>{metaExpanded ? 'Close Settings' : 'Edit Settings'}</span>
+            {metaExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowDeleteSetConfirm(true)}
+            className="flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors px-3 py-1.5 rounded-xl border border-rose-200 dark:border-rose-900/60"
+            title="Soft Delete Exercise Set"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Delete Exercise</span>
+          </button>
+        </div>
       </div>
 
       {/* Collapsible Meta Editor */}
@@ -690,7 +726,7 @@ export const ExerciseEditorWorkspace: React.FC<ExerciseEditorWorkspaceProps> = (
         </div>
       )}
 
-      {/* Custom Soft Delete Confirmation Modal */}
+      {/* Custom Soft Delete Confirmation Modal for Single Problem */}
       <ConfirmModal
         isOpen={Boolean(problemToDeleteId)}
         title="Delete Question Rep"
@@ -699,6 +735,17 @@ export const ExerciseEditorWorkspace: React.FC<ExerciseEditorWorkspaceProps> = (
         danger={true}
         onConfirm={handleDeleteConfirm}
         onClose={() => setProblemToDeleteId(null)}
+      />
+
+      {/* Confirmation Modal for Deleting Entire Exercise Set */}
+      <ConfirmModal
+        isOpen={showDeleteSetConfirm}
+        title="Delete Entire Exercise Set?"
+        message="Are you sure you want to soft delete this entire exercise set and all its questions? This action will remove it from your subchapter workspace."
+        confirmText="Soft Delete Exercise Set"
+        danger={true}
+        onConfirm={handleDeleteEntireExerciseSet}
+        onClose={() => setShowDeleteSetConfirm(false)}
       />
     </div>
   );

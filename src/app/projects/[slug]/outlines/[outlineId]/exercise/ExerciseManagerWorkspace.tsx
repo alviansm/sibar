@@ -9,6 +9,8 @@ import { GeminiOCRModal } from '../GeminiOCRModal';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { useToast } from '@/components/Toast';
 import { LottieEmptyState } from '@/components/LottieEmptyState';
+import { Breadcrumb } from '@/components/Breadcrumb';
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import {
   ArrowLeft,
   Plus,
@@ -42,6 +44,7 @@ interface ExerciseManagerWorkspaceProps {
   projectTitle: string;
   subchapterCode: string;
   subchapterTitle: string;
+  parentChapter?: { id: string; code: string; title: string } | null;
   initialExerciseSets: ExerciseSetItem[];
 }
 
@@ -51,10 +54,18 @@ export const ExerciseManagerWorkspace: React.FC<ExerciseManagerWorkspaceProps> =
   projectTitle,
   subchapterCode,
   subchapterTitle,
+  parentChapter,
   initialExerciseSets,
 }) => {
   const router = useRouter();
   const { toast } = useToast();
+
+  const breadcrumbs = buildBreadcrumbs({
+    project: { name: projectTitle, slug },
+    chapter: parentChapter,
+    subchapter: { id: outlineId, code: subchapterCode, title: subchapterTitle },
+    childPage: 'Exercise Sets',
+  });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalStep, setModalStep] = useState<'choice' | 'manual' | 'ai'>('choice');
@@ -125,8 +136,9 @@ export const ExerciseManagerWorkspace: React.FC<ExerciseManagerWorkspaceProps> =
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {/* Header & Main Add Button */}
+      <Breadcrumb items={breadcrumbs} />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-m3-1">
         <div className="flex items-center gap-3">
           <Link
@@ -136,11 +148,6 @@ export const ExerciseManagerWorkspace: React.FC<ExerciseManagerWorkspaceProps> =
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
-            <div className="flex items-center gap-2 text-xs font-mono text-violet-600 dark:text-violet-400 font-semibold">
-              <span>{projectTitle}</span>
-              <span>/</span>
-              <span>{subchapterCode}</span>
-            </div>
             <h1 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
               <Layers className="w-5 h-5 text-violet-600" />
               <span>Exercise Sets Manager ({initialExerciseSets.length})</span>

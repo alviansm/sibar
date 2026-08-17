@@ -34,13 +34,47 @@ export default async function ExerciseLobbyPage(props: ExerciseLobbyPageProps) {
   if (!project) notFound();
 
   // Fetch the exercise_set row for persistent settings
-  const exerciseSet = db
+  let exerciseSet = db
     .select()
     .from(exercise_sets)
     .where(and(eq(exercise_sets.id, params.exerciseId), eq(exercise_sets.is_deleted, 0)))
     .get();
 
-  if (!exerciseSet) notFound();
+  if (!exerciseSet) {
+    const existingProb = db
+      .select()
+      .from(problems)
+      .where(and(eq(problems.exercise_id, params.exerciseId), eq(problems.is_deleted, 0)))
+      .get();
+
+    if (existingProb) {
+      const now = Math.floor(Date.now() / 1000);
+      db.insert(exercise_sets)
+        .values({
+          id: params.exerciseId,
+          outline_id: outline.id,
+          title: 'Textbook Exercise Set',
+          description: '',
+          passing_grade: 70,
+          is_timed: 1,
+          created_at: now,
+        })
+        .run();
+
+      exerciseSet = {
+        id: params.exerciseId,
+        outline_id: outline.id,
+        title: 'Textbook Exercise Set',
+        description: '',
+        passing_grade: 70,
+        is_timed: 1,
+        is_deleted: 0,
+        created_at: now,
+      };
+    } else {
+      notFound();
+    }
+  }
 
   // Fetch problems attached to this exercise set
   const exerciseProblems = db
@@ -83,6 +117,10 @@ export default async function ExerciseLobbyPage(props: ExerciseLobbyPageProps) {
   const hasPassed = finishedAttempts.some((a) => a.is_passed === 1);
   const lastAttempt = previousAttempts[0] || null;
 
+  const parentChapter = outline.parent_id
+    ? db.select().from(outlines).where(and(eq(outlines.id, outline.parent_id), eq(outlines.is_deleted, 0))).get()
+    : null;
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
       <Navbar username={user?.username || 'admin'} fullName={user?.fullName} />
@@ -95,6 +133,7 @@ export default async function ExerciseLobbyPage(props: ExerciseLobbyPageProps) {
           projectTitle={project.name}
           subchapterCode={outline.code}
           subchapterTitle={outline.title}
+          parentChapter={parentChapter ? { id: parentChapter.id, code: parentChapter.code, title: parentChapter.title } : null}
           exerciseTitle={exerciseSet.title}
           exerciseDescription={exerciseSet.description}
           questionCount={exerciseProblems.length}

@@ -20,6 +20,9 @@ import {
   Layers,
 } from 'lucide-react';
 
+import { Breadcrumb } from '@/components/Breadcrumb';
+import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+
 interface ExerciseReviewWorkspaceProps {
   outlineId: string;
   exerciseId: string;
@@ -27,6 +30,7 @@ interface ExerciseReviewWorkspaceProps {
   projectTitle: string;
   subchapterCode: string;
   subchapterTitle: string;
+  parentChapter?: { id: string; code: string; title: string } | null;
   exerciseTitle: string;
   problems: any[];
   sessionAttempt: any;
@@ -39,10 +43,18 @@ export const ExerciseReviewWorkspace: React.FC<ExerciseReviewWorkspaceProps> = (
   projectTitle,
   subchapterCode,
   subchapterTitle,
+  parentChapter,
   exerciseTitle,
   problems,
   sessionAttempt,
 }) => {
+  const breadcrumbs = buildBreadcrumbs({
+    project: { name: projectTitle, slug },
+    chapter: parentChapter,
+    subchapter: { id: outlineId, code: subchapterCode, title: subchapterTitle },
+    exerciseSet: { id: exerciseId, title: exerciseTitle },
+    childPage: 'Session Review',
+  });
   // Anti-Spoiler Per-Question Toggles
   const [revealedAnswers, setRevealedAnswers] = useState<Record<string, boolean>>({});
   const [revealedSolutions, setRevealedSolutions] = useState<Record<string, boolean>>({});
@@ -72,22 +84,18 @@ export const ExerciseReviewWorkspace: React.FC<ExerciseReviewWorkspaceProps> = (
     : 'Just now';
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-200">
+    <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-200">
       {/* Top Navigation */}
+      <Breadcrumb items={breadcrumbs} />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Link
-            href={`/projects/${slug}?sub=${outlineId}`}
+            href={`/projects/${slug}/outlines/${outlineId}/exercise/${exerciseId}/lobby`}
             className="p-2.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 transition-colors shadow-xs"
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
-            <div className="flex items-center gap-2 text-xs font-mono text-indigo-600 dark:text-indigo-400 font-semibold">
-              <span>{projectTitle}</span>
-              <span>/</span>
-              <span>{subchapterCode} {subchapterTitle}</span>
-            </div>
             <h1 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
               <Layers className="w-5 h-5 text-indigo-600" />
               <span>Exercise Review &amp; Results: {exerciseTitle}</span>

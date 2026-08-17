@@ -445,3 +445,61 @@ Return ONLY valid JSON matching this schema:
     };
   }
 }
+
+export interface QuoteExplanationResult {
+  historical_context: string;
+  stem_mindset: string;
+  learning_strategy: string;
+  philosophical_insight: string;
+  key_takeaway: string;
+}
+
+export async function explainQuoteWithAI(
+  quote: string,
+  author: string,
+  modelName: string = 'gemini-3.6-flash'
+): Promise<QuoteExplanationResult> {
+  const ai = getGeminiClient();
+
+  const prompt = `You are Sibar's AI Telemetry & Philosophy Coach for high-performance students, mathematicians, scientists, and engineers.
+Analyze and contextualize the following motivational quote:
+
+Quote: "${quote}"
+Author: "${author}"
+
+Provide a deep, inspiring breakdown that connects this quote directly to STEM study reps, historical context, problem-solving friction, and cognitive mastery. Use clean LaTeX notation ($...$ or $$...$$) where applicable for mathematical examples.
+
+Return ONLY a valid JSON object matching this schema (no markdown fences outside JSON):
+{
+  "historical_context": "The historical backstory, origin event, or circumstance of what led the author to formulate this quote/thought.",
+  "stem_mindset": "How this quote applies directly to mathematics, scientific derivation, engineering problem solving, and embracing friction.",
+  "learning_strategy": "Actionable, concrete study reps or habits a student can apply today (e.g., pomodoro focus, error logging, deliberate practice).",
+  "philosophical_insight": "Deep underlying wisdom and perspective on growth, resilience, and curiosity.",
+  "key_takeaway": "A memorable 1-line motivational mantra for high performers."
+}`;
+
+  try {
+    const { response } = await generateContentWithFallback(
+      ai,
+      modelName || 'gemini-3.6-flash',
+      [{ role: 'user', parts: [{ text: prompt }] }],
+      { responseMimeType: 'application/json' }
+    );
+
+    const responseText = response.text || '';
+    const parsed = JSON.parse(responseText.trim());
+
+    return {
+      historical_context: parsed.historical_context || `${author} expressed this insight based on years of intense intellectual inquiry and problem solving.`,
+      stem_mindset: parsed.stem_mindset || 'Apply persistent logical reasoning and stay with mathematical friction until clarity emerges.',
+      learning_strategy: parsed.learning_strategy || 'Break complex derivations into smaller sub-problems. Log every mistake in your friction telemetry journal.',
+      philosophical_insight: parsed.philosophical_insight || 'Mastery is not an innate gift but the cumulative result of deliberate practice and intellectual curiosity.',
+      key_takeaway: parsed.key_takeaway || 'Every solved rep builds permanent cognitive strength.',
+    };
+  } catch (error: any) {
+    console.error(`Error explaining quote with Gemini (${modelName}):`, error);
+    throw error;
+  }
+}
+
+

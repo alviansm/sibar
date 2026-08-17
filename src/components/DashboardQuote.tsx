@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Quote, RefreshCw, Sparkles, BookOpen } from 'lucide-react';
+import { Quote, RefreshCw, Sparkles, BookOpen, BrainCircuit } from 'lucide-react';
 import { MotivationalQuote, QuoteInterval } from '@/lib/quotes';
+import { QuoteExplanationModal } from '@/components/QuoteExplanationModal';
 
 interface DashboardQuoteProps {
   initialQuote?: MotivationalQuote | null;
@@ -17,6 +18,7 @@ export const DashboardQuote: React.FC<DashboardQuoteProps> = ({
 }) => {
   const [quote, setQuote] = useState<MotivationalQuote | null>(initialQuote || null);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [isExplainModalOpen, setIsExplainModalOpen] = useState<boolean>(false);
 
   const fetchQuote = async (forceRefresh: boolean = false) => {
     setIsRefreshing(true);
@@ -93,6 +95,18 @@ export const DashboardQuote: React.FC<DashboardQuoteProps> = ({
         >
           <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
         </button>
+
+        {quote && (
+          <button
+            type="button"
+            onClick={() => setIsExplainModalOpen(true)}
+            className="ml-1 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-indigo-500/30 via-purple-500/30 to-indigo-500/30 hover:from-indigo-500/50 hover:to-purple-500/50 text-indigo-200 hover:text-white text-[11px] font-semibold border border-indigo-400/40 flex items-center gap-1 transition-all shadow-sm group"
+            title="Ask Gemini AI to analyze & contextualize this quote"
+          >
+            <Sparkles className="w-3 h-3 text-indigo-300 group-hover:rotate-12 transition-transform" />
+            <span>Explain</span>
+          </button>
+        )}
       </div>
 
       {quote ? (
@@ -109,6 +123,16 @@ export const DashboardQuote: React.FC<DashboardQuoteProps> = ({
           Track your math derivation reps, study time, and problem friction like a high-performance athlete.
         </p>
       )}
+
+      {quote && (
+        <QuoteExplanationModal
+          isOpen={isExplainModalOpen}
+          quote={quote.quote}
+          author={quote.author}
+          onClose={() => setIsExplainModalOpen(false)}
+        />
+      )}
     </div>
   );
 };
+
