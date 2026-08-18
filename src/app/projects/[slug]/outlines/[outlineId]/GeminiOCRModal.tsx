@@ -3,9 +3,16 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { AVAILABLE_GEMINI_MODELS } from '@/lib/gemini';
-import { Sparkles, Upload, X, Loader2, Cpu, FileCode, CheckCircle2, ArrowRight, Layers } from 'lucide-react';
+import { Sparkles, Upload, X, Loader2, Cpu, FileCode, CheckCircle2, ArrowRight, Layers, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 import { MathRenderer } from '@/components/MathRenderer';
+
+interface StagedPhoto {
+  id: string;
+  base64: string;
+  mimeType: string;
+  name?: string;
+}
 
 interface GeminiOCRModalProps {
   onBulkImport: (parsedProblems: any[]) => void;
@@ -23,17 +30,15 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
   }, []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [preview, setPreview] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState('gemini-3.6-flash');
   const [targetType, setTargetType] = useState<'multiple_choice' | 'essay'>('multiple_choice');
   const [userInstructions, setUserInstructions] = useState('');
-  const [stagedImage, setStagedImage] = useState<{ base64: string; mimeType: string } | null>(null);
+  const [stagedImages, setStagedImages] = useState<StagedPhoto[]>([]);
   const [extractedProblems, setExtractedProblems] = useState<any[]>([]);
 
   const resetModal = () => {
     setStep(1);
-    setPreview(null);
-    setStagedImage(null);
+    setStagedImages([]);
     setError('');
     setUserInstructions('');
     setExtractedProblems([]);
@@ -41,28 +46,45 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
     setError('');
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result as string;
-      setPreview(base64);
-      setStagedImage({ base64, mimeType: file.type || 'image/png' });
-    };
-    reader.readAsDataURL(file);
+    const fileList = Array.from(files);
+
+    fileList.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        setStagedImages((prev) => [
+          ...prev,
+          {
+            id: Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
+            base64,
+            mimeType: file.type || 'image/png',
+            name: file.name,
+          },
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
+
+    e.target.value = '';
+  };
+
+  const handleRemovePhoto = (id: string) => {
+    setStagedImages((prev) => prev.filter((img) => img.id !== id));
   };
 
   const handleStartProcess = async () => {
-    if (!stagedImage) {
-      setError('Please select or upload a textbook exercise photo first.');
+    if (stagedImages.length === 0) {
+      setError('Please select or upload at least one textbook exercise photo first.');
       return;
     }
-    await processImage(stagedImage.base64, stagedImage.mimeType);
+    await processImages(stagedImages);
   };
 
-  const processImage = async (base64: string, mimeType: string) => {
+  const processImages = async (photos: StagedPhoto[]) => {
     setLoading(true);
     setError('');
 
@@ -71,7 +93,7 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          images: [{ base64, mimeType }],
+          images: photos.map((p) => ({ base64: p.base64, mimeType: p.mimeType })),
           targetProblemType: targetType,
           modelName: selectedModel,
           userInstructions: userInstructions.trim() || undefined,
@@ -80,18 +102,18 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
 
       const json = await res.json();
       if (!res.ok || json.error) {
-        throw new Error(json.error || 'Failed to process textbook exercise image with Gemini AI.');
+        throw new Error(json.error || 'Failed to process textbook exercise image(s) with Gemini AI.');
       }
 
       if (!json.data || json.data.length === 0) {
-        throw new Error('Gemini could not detect clear exercise problem statements in the uploaded photo.');
+        throw new Error('Gemini could not detect clear exercise problem statements in the uploaded photo(s).');
       }
 
       setExtractedProblems(json.data);
       setStep(2); // Move to Step 2: Format Selection & Confirmation
     } catch (err: any) {
       setError(err.message || 'Error running Gemini AI OCR');
-      toast('OCR Failed', err.message || 'Could not digitize textbook problem set page.', 'error');
+      toast('OCR Failed', err.message || 'Could not digitize textbook problem set page(s).', 'error');
     } finally {
       setLoading(false);
     }
@@ -99,12 +121,32 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
 
   const handleFinalImport = () => {
     // Transform extracted problems according to user selected targetType
-    const formatted = extractedProblems.map((p) => ({
-      ...p,
-      problem_type: targetType,
-      options: targetType === 'multiple_choice' ? (p.options && p.options.length === 4 ? p.options : ['Option A', 'Option B', 'Option C', 'Option D']) : null,
-      correct_option_index: targetType === 'multiple_choice' ? (typeof p.correct_option_index === 'number' ? p.correct_option_index : 0) : null,
-    }));
+    const formatted = extractedProblems.map((p) => {
+      if (targetType === 'multiple_choice') {
+        const hasValidOpts = Array.isArray(p.options) && p.options.length >= 2;
+        const options = hasValidOpts ? p.options : ['Option A', 'Option B', 'Option C', 'Option D'];
+        const correct_option_index =
+          typeof p.correct_option_index === 'number' &&
+          p.correct_option_index >= 0 &&
+          p.correct_option_index < options.length
+            ? p.correct_option_index
+            : Math.floor(Math.random() * options.length);
+
+        return {
+          ...p,
+          problem_type: 'multiple_choice' as const,
+          options,
+          correct_option_index,
+        };
+      }
+
+      return {
+        ...p,
+        problem_type: targetType,
+        options: null,
+        correct_option_index: null,
+      };
+    });
 
     onBulkImport(formatted);
     setIsOpen(false);
@@ -158,11 +200,15 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
               </div>
 
               <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-                {step === 1 ? 'Upload Textbook Problem Set Photo' : `Discovered ${extractedProblems.length} Exercise Problems`}
+                {step === 1
+                  ? stagedImages.length > 1
+                    ? `Upload Textbook Photos (${stagedImages.length} staged)`
+                    : 'Upload Textbook Problem Set Photo(s)'
+                  : `Discovered ${extractedProblems.length} Exercise Problems`}
               </h3>
               <p className="text-xs text-slate-500">
                 {step === 1
-                  ? 'Upload screenshots or photos of textbook exercise pages (e.g. Problem Set 0.4).'
+                  ? 'Upload one or multiple screenshots/photos of textbook exercise pages (e.g. Problem Set 0.4).'
                   : 'Select your preferred question format mode for this exercise set.'}
               </p>
             </div>
@@ -199,7 +245,7 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
                     value={userInstructions}
                     onChange={(e) => setUserInstructions(e.target.value)}
                     disabled={loading}
-                    placeholder='e.g. "Pick 5 hardest problems, 4 multiple choice, 1 essay" or "Make 10 similar problems based on this page"'
+                    placeholder='e.g. "Pick 10 hardest problems across these pages, all multiple choice" or "Make variant questions based on these pages"'
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
@@ -213,32 +259,84 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
                   </div>
                 )}
 
-                <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl p-6 text-center space-y-4 hover:border-indigo-400 transition-colors relative bg-slate-50/50 dark:bg-slate-900/50">
+                <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl p-5 text-center space-y-4 hover:border-indigo-400 transition-colors relative bg-slate-50/50 dark:bg-slate-900/50">
                   {loading ? (
-                    <div className="py-6 space-y-3">
+                    <div className="py-8 space-y-3">
                       <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mx-auto" />
                       <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-                        Gemini AI is digesting textbook exercise page into LaTeX problem set...
+                        Gemini AI is digesting {stagedImages.length} textbook page photo{stagedImages.length === 1 ? '' : 's'} into LaTeX problem set...
                       </p>
                     </div>
-                  ) : preview ? (
+                  ) : stagedImages.length > 0 ? (
                     <div className="space-y-3">
-                      <div className="relative inline-block group">
-                        <img src={preview} alt="Staged Upload Preview" className="max-h-44 mx-auto rounded-xl shadow-md border border-slate-200 dark:border-slate-700" />
-                        <label className="absolute bottom-2 right-2 px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-900 text-white text-[11px] font-bold shadow-lg cursor-pointer flex items-center gap-1.5 transition-all">
-                          <Upload className="w-3.5 h-3.5" />
-                          <span>Change Photo</span>
+                      {/* Grid of staged photos */}
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-56 overflow-y-auto p-1">
+                        {stagedImages.map((img, idx) => (
+                          <div
+                            key={img.id}
+                            className="relative group rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm aspect-video flex flex-col justify-between"
+                          >
+                            <img
+                              src={img.base64}
+                              alt={img.name || `Photo ${idx + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                            {/* Overlay Top & Bottom */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-slate-950/70 p-2 flex flex-col justify-between">
+                              <div className="flex items-center justify-between">
+                                <span className="px-1.5 py-0.5 rounded-md bg-slate-900/90 text-white text-[10px] font-bold">
+                                  #{idx + 1}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemovePhoto(img.id);
+                                  }}
+                                  className="p-1 rounded-lg bg-rose-600/90 hover:bg-rose-600 text-white transition-colors shadow-sm"
+                                  title="Remove photo"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                              <span className="text-[10px] text-slate-200 truncate text-left font-medium">
+                                {img.name || `Page ${idx + 1}`}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Add More Photos Card in the Grid */}
+                        <label className="relative rounded-2xl border-2 border-dashed border-indigo-300 dark:border-indigo-800/80 bg-indigo-50/50 dark:bg-indigo-950/30 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 aspect-video flex flex-col items-center justify-center gap-1 cursor-pointer transition-all group">
+                          <div className="w-7 h-7 rounded-xl bg-indigo-100 dark:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <Plus className="w-4 h-4" />
+                          </div>
+                          <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400">
+                            Add Photo
+                          </span>
                           <input
                             type="file"
+                            multiple
                             accept="image/*"
                             onChange={handleFileChange}
                             className="hidden"
                           />
                         </label>
                       </div>
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
-                        ✓ Photo staged and ready. Add instructions above if needed.
-                      </p>
+
+                      <div className="flex items-center justify-between pt-1 text-xs px-1">
+                        <p className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>{stagedImages.length} photo{stagedImages.length === 1 ? '' : 's'} staged &amp; ready</span>
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setStagedImages([])}
+                          className="text-slate-400 hover:text-rose-500 text-[11px] font-medium transition-colors"
+                        >
+                          Clear all
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <>
@@ -247,12 +345,13 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                          Upload Problem Set textbook page photo
+                          Upload Problem Set textbook page photos
                         </p>
-                        <p className="text-xs text-slate-400 mt-1">PNG, JPG, WEBP screenshots supported</p>
+                        <p className="text-xs text-slate-400 mt-1">PNG, JPG, WEBP screenshots supported (Select one or multiple)</p>
                       </div>
                       <input
                         type="file"
+                        multiple
                         accept="image/*"
                         onChange={handleFileChange}
                         disabled={loading}
@@ -267,7 +366,7 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
                   <button
                     type="button"
                     onClick={handleStartProcess}
-                    disabled={!stagedImage || loading}
+                    disabled={stagedImages.length === 0 || loading}
                     className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-500 hover:to-sky-500 text-white text-xs font-bold shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed m3-ripple"
                   >
                     {loading ? (
@@ -278,7 +377,11 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
                     ) : (
                       <>
                         <Sparkles className="w-4 h-4" />
-                        <span>Extract &amp; Generate Problems (Gemini AI)</span>
+                        <span>
+                          {stagedImages.length > 1
+                            ? `Extract & Generate Problems (${stagedImages.length} Photos - Gemini AI)`
+                            : `Extract & Generate Problems (Gemini AI)`}
+                        </span>
                       </>
                     )}
                   </button>
@@ -338,11 +441,39 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
                   <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                     Extracted Problems Preview ({extractedProblems.length})
                   </span>
-                  <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
+                  <div className="max-h-56 overflow-y-auto space-y-2.5 pr-1">
                     {extractedProblems.map((p, i) => (
-                      <div key={i} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-xs">
-                        <span className="font-bold text-indigo-600 mr-2">#{i + 1}</span>
-                        <MathRenderer content={p.problem_statement} />
+                      <div key={i} className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-xs space-y-2">
+                        <div>
+                          <span className="font-bold text-indigo-600 mr-2">#{i + 1}</span>
+                          <MathRenderer content={p.problem_statement} />
+                        </div>
+
+                        {targetType === 'multiple_choice' && p.options && Array.isArray(p.options) && p.options.length > 0 && (
+                          <div className="grid grid-cols-2 gap-1.5 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+                            {p.options.map((opt: string, optIdx: number) => {
+                              const isCorrect = (typeof p.correct_option_index === 'number' ? p.correct_option_index : 0) === optIdx;
+                              return (
+                                <div
+                                  key={optIdx}
+                                  className={`px-2.5 py-1.5 rounded-xl text-[11px] flex items-center gap-1.5 transition-colors ${
+                                    isCorrect
+                                      ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-semibold border border-emerald-200 dark:border-emerald-800'
+                                      : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200/50 dark:border-slate-700/50'
+                                  }`}
+                                >
+                                  <span className="font-bold">{String.fromCharCode(65 + optIdx)}.</span>
+                                  <span className="truncate flex-1"><MathRenderer content={opt} /></span>
+                                  {isCorrect && (
+                                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold shrink-0">
+                                      ✓ Key
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

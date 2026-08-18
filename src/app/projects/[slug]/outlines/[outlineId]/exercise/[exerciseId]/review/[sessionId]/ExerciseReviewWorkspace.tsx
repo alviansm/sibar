@@ -40,6 +40,9 @@ interface ExerciseReviewWorkspaceProps {
   exerciseTitle: string;
   problems: any[];
   sessionAttempt: any;
+  passingGrade?: number;
+  isTimed?: boolean;
+  selectedAnswers?: Record<string, string> | null;
 }
 
 export const ExerciseReviewWorkspace: React.FC<ExerciseReviewWorkspaceProps> = ({
@@ -53,6 +56,9 @@ export const ExerciseReviewWorkspace: React.FC<ExerciseReviewWorkspaceProps> = (
   exerciseTitle,
   problems,
   sessionAttempt,
+  passingGrade = 70,
+  isTimed = false,
+  selectedAnswers = null,
 }) => {
   const breadcrumbs = buildBreadcrumbs({
     project: { name: projectTitle, slug },
@@ -234,7 +240,7 @@ export const ExerciseReviewWorkspace: React.FC<ExerciseReviewWorkspaceProps> = (
             </div>
 
             {/* Stats Row */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className={`grid gap-3 ${isTimed ? 'grid-cols-3' : 'grid-cols-2'}`}>
               <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700 text-center">
                 <div className="flex items-center justify-center gap-1 mb-1">
                   <Target className="w-3.5 h-3.5 text-violet-500" />
@@ -255,22 +261,24 @@ export const ExerciseReviewWorkspace: React.FC<ExerciseReviewWorkspaceProps> = (
                 <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Wrong</div>
               </div>
 
-              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700 text-center">
-                <div className="flex items-center justify-center gap-1 mb-1">
-                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+              {isTimed && (
+                <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700 text-center">
+                  <div className="flex items-center justify-center gap-1 mb-1">
+                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                  </div>
+                  <div className="text-base font-black text-slate-700 dark:text-slate-200 font-mono">
+                    {formatSecondsToHHMMSS(durationSeconds)}
+                  </div>
+                  <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Time Spent</div>
                 </div>
-                <div className="text-base font-black text-slate-700 dark:text-slate-200 font-mono">
-                  {formatSecondsToHHMMSS(durationSeconds)}
-                </div>
-                <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Duration</div>
-              </div>
+              )}
             </div>
 
             {/* Progress bar */}
             <div className="space-y-1.5">
               <div className="flex justify-between text-[11px] font-bold font-mono text-slate-500">
                 <span>Score</span>
-                <span className={scoreColor}>{scorePct}% {isPassed ? '· Passed ✓' : '· Need 70% to pass'}</span>
+                <span className={scoreColor}>{scorePct}% {isPassed ? '· Passed ✓' : `· Need ${passingGrade}% to pass`}</span>
               </div>
               <div className="w-full h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                 <div
@@ -284,17 +292,17 @@ export const ExerciseReviewWorkspace: React.FC<ExerciseReviewWorkspaceProps> = (
                   style={{ width: `${scorePct}%` }}
                 />
               </div>
-              {/* 70% passing marker */}
+              {/* Passing grade marker */}
               <div className="relative h-2" style={{ marginTop: '-8px' }}>
                 <div
                   className="absolute top-0 w-px h-3 bg-violet-400/60"
-                  style={{ left: '70%' }}
+                  style={{ left: `${passingGrade}%` }}
                 />
                 <span
                   className="absolute top-3 text-[9px] font-bold font-mono text-violet-400 -translate-x-1/2"
-                  style={{ left: '70%' }}
+                  style={{ left: `${passingGrade}%` }}
                 >
-                  70%
+                  {passingGrade}%
                 </span>
               </div>
             </div>
@@ -352,21 +360,25 @@ export const ExerciseReviewWorkspace: React.FC<ExerciseReviewWorkspaceProps> = (
           const isAnsRevealed = Boolean(revealedAnswers[prob.id]);
           const isSolRevealed = Boolean(revealedSolutions[prob.id]);
 
+          // Resolve options and correct answer indices up-front (needed for both header and body)
           let parsedOptions: string[] = [];
           if (prob.options_json) {
-            try {
-              parsedOptions = JSON.parse(prob.options_json);
-            } catch (e) {}
+            try { parsedOptions = JSON.parse(prob.options_json); } catch (e) {}
           }
 
           let correctIndices: number[] = [];
           if (prob.correct_option_indices) {
-            try {
-              correctIndices = JSON.parse(prob.correct_option_indices);
-            } catch (e) {}
+            try { correctIndices = JSON.parse(prob.correct_option_indices); } catch (e) {}
           } else if (typeof prob.correct_option_index === 'number') {
             correctIndices = [prob.correct_option_index];
           }
+
+          // User selection status (only meaningful for MCQ)
+          const userSelectedText = selectedAnswers?.[String(idx)] ?? null;
+          const userSelectedIdx = userSelectedText ? parsedOptions.indexOf(userSelectedText) : -1;
+          const isUserCorrect = userSelectedIdx !== -1 && correctIndices.includes(userSelectedIdx);
+          const isUnanswered = prob.problem_type === 'multiple_choice' && !userSelectedText;
+          const hasMcqData = selectedAnswers !== null && prob.problem_type === 'multiple_choice';
 
           return (
             <div
@@ -393,7 +405,24 @@ export const ExerciseReviewWorkspace: React.FC<ExerciseReviewWorkspaceProps> = (
                     {prob.problem_statement?.replace(/\$\$?[^$]*\$\$?/g, '[math]')?.substring(0, 80)}…
                   </p>
                 </div>
+
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  {/* Per-question status badge — always visible in collapsed header */}
+                  {hasMcqData && (
+                    isUnanswered ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 border border-slate-200 dark:border-slate-700">
+                        — Unanswered
+                      </span>
+                    ) : isUserCorrect ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                        <CheckCircle2 className="w-3 h-3" /> Correct
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800">
+                        <XCircle className="w-3 h-3" /> Wrong
+                      </span>
+                    )
+                  )}
                   {isAnsRevealed && (
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 border border-emerald-200 dark:border-emerald-800">
                       Key Revealed
@@ -419,31 +448,54 @@ export const ExerciseReviewWorkspace: React.FC<ExerciseReviewWorkspaceProps> = (
                   {parsedOptions.length > 0 && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {parsedOptions.map((opt, oIdx) => {
-                        const isKey = isAnsRevealed && correctIndices.includes(oIdx);
+                        const isCorrectOption = correctIndices.includes(oIdx);
+                        const isUserPick = userSelectedText !== null && opt === userSelectedText;
+                        const isCorrectPick = isUserPick && isCorrectOption;
+                        const isWrongPick = isUserPick && !isCorrectOption;
+                        // Show correct key highlight only when revealed AND it's not already shown as user's correct pick
+                        const isKeyOnly = isAnsRevealed && isCorrectOption && !isUserPick;
+
                         return (
                           <div
                             key={oIdx}
                             className={`p-3 rounded-xl border text-xs flex items-center justify-between gap-2 transition-all ${
-                              isKey
-                                ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-400 text-emerald-900 dark:text-emerald-200 font-semibold shadow-sm'
+                              isCorrectPick
+                                ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-400 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200 font-semibold shadow-sm'
+                                : isWrongPick
+                                ? 'bg-rose-50 dark:bg-rose-950/50 border-rose-400 dark:border-rose-700 text-rose-900 dark:text-rose-200 font-semibold shadow-sm'
+                                : isKeyOnly
+                                ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 font-semibold'
                                 : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
                             }`}
                           >
                             <div className="flex items-center gap-2">
                               <span className={`w-5 h-5 rounded-full font-bold text-[10px] flex items-center justify-center flex-shrink-0 font-mono ${
-                                isKey
-                                  ? 'bg-emerald-500 text-white'
-                                  : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
+                                isCorrectPick ? 'bg-emerald-500 text-white'
+                                : isWrongPick ? 'bg-rose-500 text-white'
+                                : isKeyOnly ? 'bg-emerald-400 text-white'
+                                : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
                               }`}>
                                 {String.fromCharCode(65 + oIdx)}
                               </span>
                               <MathRenderer content={opt} />
                             </div>
-                            {isKey && (
-                              <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-600 text-white flex items-center gap-1 flex-shrink-0">
-                                <CheckSquare className="w-3 h-3" /> Key
-                              </span>
-                            )}
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              {isCorrectPick && (
+                                <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-600 text-white flex items-center gap-1">
+                                  <CheckCircle2 className="w-3 h-3" /> Your Answer
+                                </span>
+                              )}
+                              {isWrongPick && (
+                                <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-rose-600 text-white flex items-center gap-1">
+                                  <XCircle className="w-3 h-3" /> Your Answer
+                                </span>
+                              )}
+                              {isKeyOnly && (
+                                <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-600 text-white flex items-center gap-1">
+                                  <CheckSquare className="w-3 h-3" /> Key
+                                </span>
+                              )}
+                            </div>
                           </div>
                         );
                       })}

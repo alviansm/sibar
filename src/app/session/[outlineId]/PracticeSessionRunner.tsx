@@ -141,11 +141,13 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
 
   // Evaluate accuracy and finish session attempt
   const handleFinalSubmit = async () => {
+    // ── 1. Freeze the timer and lock in the elapsed time immediately ──────────
+    setIsActive(false);
+    const finalSeconds = seconds; // snapshot before any await
     setIsSubmitting(true);
-    let correctCount = 0;
 
-    for (let i = 0; i < problems.length; i++) {
-      const prob = problems[i];
+    // ── 2. Grade everything locally — pure JS, no network ────────────────────
+    const gradedProblems = problems.map((prob, i) => {
       const selected = selectedAnswers[i] || null;
 
       let parsedOpts: string[] = [];
@@ -161,52 +163,70 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
         } else if (typeof prob.correct_option_index === 'number') {
           correctIndices = [prob.correct_option_index];
         }
-
         const chosenIndex = parsedOpts.indexOf(selected);
         if (correctIndices.length > 0 && chosenIndex !== -1) {
           isMcqCorrect = correctIndices.includes(chosenIndex);
         }
       }
 
-      if (isMcqCorrect) correctCount++;
+      return { prob, selected, isMcqCorrect };
+    });
 
-      // Log attempt into telemetry DB
-      const outcome = isMcqCorrect ? 'clean_solve' : 'surrendered';
-      await logAttemptAction(
-        prob.id,
-        outlineId,
-        Math.round(seconds / Math.max(1, problems.length)),
-        outcome,
-        1,
-        selected ? `Selected Choice: ${selected}` : ''
-      );
-    }
+    const correctCount = gradedProblems.filter((g) => g.isMcqCorrect).length;
+    const totalCount = problems.length;
+    const scorePct = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
 
     const targetExId = exerciseId || currentProb.exercise_id || outlineId;
     let activeSessionId = sessionId;
 
+    // ── 3. Fire ALL DB work in the background — nothing blocks navigation ─────
     if (!activeSessionId) {
-      const startRes = await startExerciseSessionAction(targetExId, outlineId, isTimed);
-      if (startRes?.sessionId) {
-        activeSessionId = startRes.sessionId;
-      }
+      // Rare path: no pre-created session (lobby always creates one, but be safe)
+      startExerciseSessionAction(targetExId, outlineId, isTimed)
+        .then((res) => {
+          if (res?.sessionId) {
+            finishExerciseSessionAction(res.sessionId, correctCount, totalCount, finalSeconds).catch(console.error);
+          }
+        })
+        .catch(console.error);
+      // Can't navigate to a proper review URL without an ID, so fall back
+      setIsSubmitting(false);
+      setShowLeaveModal(false);
+      toast('Exercise Submitted!', `Finished with ${correctCount}/${totalCount} correct answers.`, 'success');
+      router.push(`/projects/${slug}?sub=${outlineId}`);
+      return;
     }
 
-    if (activeSessionId) {
-      await finishExerciseSessionAction(activeSessionId, correctCount, problems.length, seconds);
-    }
+    // Normal path: sessionId already exists from lobby
+    // Fire everything as background tasks — do NOT await
+    finishExerciseSessionAction(activeSessionId, correctCount, totalCount, finalSeconds).catch(console.error);
+    Promise.all(
+      gradedProblems.map(({ prob, selected, isMcqCorrect }) =>
+        logAttemptAction(
+          prob.id, outlineId,
+          Math.round(finalSeconds / Math.max(1, totalCount)),
+          isMcqCorrect ? 'clean_solve' : 'surrendered',
+          1,
+          selected ? `Selected Choice: ${selected}` : ''
+        )
+      )
+    ).catch(console.error);
 
+    // ── 4. Navigate immediately — all score data travels in URL params ────────
     setIsSubmitting(false);
     setShowLeaveModal(false);
-    toast('Exercise Submitted!', `Finished with ${correctCount}/${problems.length} correct answers.`, 'success');
+    toast('Exercise Submitted!', `Finished with ${correctCount}/${totalCount} correct answers.`, 'success');
 
-    // Route to results review page
-    if (activeSessionId) {
-      router.push(`/projects/${slug}/outlines/${outlineId}/exercise/${targetExId}/review/${activeSessionId}`);
-      router.refresh();
-    } else {
-      router.push(`/projects/${slug}?sub=${outlineId}`);
-    }
+    const encodedAnswers = btoa(encodeURIComponent(JSON.stringify(selectedAnswers)));
+    const params = new URLSearchParams({
+      answers: encodedAnswers,
+      score: String(scorePct),
+      correct: String(correctCount),
+      total: String(totalCount),
+      dur: String(finalSeconds),
+      timed: isTimed ? '1' : '0',
+    });
+    router.push(`/projects/${slug}/outlines/${outlineId}/exercise/${targetExId}/review/${activeSessionId}?${params.toString()}`);
   };
 
   const handleAbandonExercise = () => {

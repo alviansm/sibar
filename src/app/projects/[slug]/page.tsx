@@ -28,6 +28,7 @@ import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { SidebarOutlineTree } from './SidebarOutlineTree';
 import { LottieEmptyState } from '@/components/LottieEmptyState';
 import { SubchapterModulesGrid } from './SubchapterModulesGrid';
+import { SubchapterManageDropdown } from './SubchapterManageDropdown';
 
 export const revalidate = 0;
 
@@ -299,35 +300,11 @@ export default async function ProjectDetailPage(props: ProjectPageProps) {
                   )}
                 </div>
 
-                {/* Right-side Subchapter Management Buttons */}
-                <div className="flex flex-wrap items-center gap-2.5 flex-shrink-0">
-                  <Link
-                    href={`/projects/${project.slug}/outlines/${activeSubchapter.id}/concepts`}
-                    className="px-3.5 py-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-300 text-xs font-semibold shadow-sm flex items-center gap-1.5 transition-all m3-ripple"
-                    title="Manage Subchapter Core Concepts & Key Formulas"
-                  >
-                    <BookOpen className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                    <span>Concepts</span>
-                  </Link>
-
-                  <Link
-                    href={`/projects/${project.slug}/outlines/${activeSubchapter.id}/examples`}
-                    className="px-3.5 py-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:text-amber-600 dark:hover:text-amber-400 hover:border-amber-300 text-xs font-semibold shadow-sm flex items-center gap-1.5 transition-all m3-ripple"
-                    title="Manage Standalone Example Problems"
-                  >
-                    <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Example Problem</span>
-                  </Link>
-
-                  <Link
-                    href={`/projects/${project.slug}/outlines/${activeSubchapter.id}/exercise`}
-                    className="px-3.5 py-2 rounded-2xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold shadow-md shadow-violet-600/30 flex items-center gap-1.5 transition-all m3-ripple"
-                    title="Manage Subchapter Exercise Sets"
-                  >
-                    <Layers className="w-3.5 h-3.5 text-white" />
-                    <span>Exercise</span>
-                  </Link>
-                </div>
+                {/* Right-side Subchapter Management Dropdown */}
+                <SubchapterManageDropdown
+                  slug={project.slug}
+                  outlineId={activeSubchapter.id}
+                />
               </div>
 
               {/* Drag and Drop Modular Grid (Concepts, Examples & Exercises) */}

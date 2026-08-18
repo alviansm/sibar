@@ -5,7 +5,44 @@ export interface ParsedProblemResult {
   solution_guide: string;
   problem_type: 'derivation' | 'calculation' | 'multiple_choice';
   options: string[] | null;
+  correct_option_index?: number | null;
   difficulty: number;
+}
+
+export function shuffleProblemOptions<T extends { options?: string[] | null; correct_option_index?: number | null }>(item: T): T {
+  if (!item.options || !Array.isArray(item.options) || item.options.length < 2) {
+    return item;
+  }
+
+  const rawCorrectIndex =
+    typeof item.correct_option_index === 'number' &&
+    item.correct_option_index >= 0 &&
+    item.correct_option_index < item.options.length
+      ? item.correct_option_index
+      : 0;
+
+  // Map each option with a flag indicating if it is the correct answer
+  const itemsWithFlag = item.options.map((opt, idx) => ({
+    text: opt,
+    isCorrect: idx === rawCorrectIndex,
+  }));
+
+  // Fisher-Yates shuffle to randomize options
+  for (let i = itemsWithFlag.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const temp = itemsWithFlag[i];
+    itemsWithFlag[i] = itemsWithFlag[j];
+    itemsWithFlag[j] = temp;
+  }
+
+  const shuffledOptions = itemsWithFlag.map((x) => x.text);
+  const newCorrectIndex = itemsWithFlag.findIndex((x) => x.isCorrect);
+
+  return {
+    ...item,
+    options: shuffledOptions,
+    correct_option_index: newCorrectIndex !== -1 ? newCorrectIndex : 0,
+  };
 }
 
 export interface AIGradeFeedback {
@@ -109,9 +146,14 @@ Return ONLY a valid JSON object matching the following TypeScript interface (no 
   "problem_statement": "Markdown string containing clean LaTeX math inline ($...$) or display ($$...$$).",
   "solution_guide": "Step-by-step LaTeX derivation or reference solution key.",
   "problem_type": "derivation" | "calculation" | "multiple_choice",
-  "options": ["Option A LaTeX", "Option B LaTeX", ...] or null if not multiple choice,
+  "options": ["Option A LaTeX", "Option B LaTeX", "Option C LaTeX", "Option D LaTeX"] or null if not multiple choice,
+  "correct_option_index": 0-based integer index of the correct option (0, 1, 2, or 3) if multiple choice, or null,
   "difficulty": integer from 1 (easy/introductory) to 5 (advanced olympiad/grad level)
 }
+
+If multiple choice:
+- Randomly distribute the position of the correct answer across options (0 for A, 1 for B, 2 for C, 3 for D). Do NOT always make option A (index 0) the correct answer.
+- Ensure "correct_option_index" matches the exact location of the correct option.
 
 Ensure all mathematical expressions use standard LaTeX notation (e.g., \\frac{a}{b}, \\lim_{x \\to \\infty}, \\int_a^b).`;
 
@@ -139,15 +181,18 @@ Ensure all mathematical expressions use standard LaTeX notation (e.g., \\frac{a}
     const responseText = response.text || '';
     const parsed = JSON.parse(responseText.trim());
     
-    return {
+    const problem: ParsedProblemResult = {
       problem_statement: parsed.problem_statement || 'Transcribed problem statement',
       solution_guide: parsed.solution_guide || 'Step-by-step solution derivation',
       problem_type: ['derivation', 'calculation', 'multiple_choice'].includes(parsed.problem_type)
         ? parsed.problem_type
         : 'calculation',
       options: Array.isArray(parsed.options) ? parsed.options : null,
+      correct_option_index: typeof parsed.correct_option_index === 'number' ? parsed.correct_option_index : 0,
       difficulty: typeof parsed.difficulty === 'number' ? Math.min(5, Math.max(1, parsed.difficulty)) : 3,
     };
+
+    return shuffleProblemOptions(problem);
   } catch (error) {
     console.error(`Error parsing problem image with Gemini:`, error);
     throw error;
@@ -380,7 +425,7 @@ Follow these custom instructions strictly (e.g., specific number of problems to 
 
 For EACH problem:
 1. Write the "problem_statement" in clean LaTeX ($...$ and $$...$$).
-2. Write a comprehensive "solution_guide" with step-by-step reasoning key in LaTeX.
+2. Write a comprehensive "solution_guide" with step-by-step reasoning key in LaTeX explaining how to arrive at the correct answer.
 3. Set "problem_type": ${
     targetProblemType === 'multiple_choice'
       ? '"multiple_choice"'
@@ -388,7 +433,12 @@ For EACH problem:
       ? '"essay"'
       : 'either "multiple_choice" or "essay" or "calculation"'
   }.
-4. If "multiple_choice", provide "options": array of 4 distinct LaTeX choice strings (1 correct answer + 3 plausible wrong distractors), and "correct_option_index": 0-based index of correct option. If not multiple choice, set "options": null and "correct_option_index": null.
+4. If "multiple_choice", provide "options": array of 4 distinct LaTeX choice strings (1 correct answer + 3 plausible wrong distractors), and "correct_option_index": 0-based index of correct option (0 for A, 1 for B, 2 for C, 3 for D).
+CRITICAL FOR MULTIPLE CHOICE:
+- Randomly and evenly distribute the correct answer index across all positions (0 for A, 1 for B, 2 for C, 3 for D) throughout the question set.
+- NEVER put the correct answer always at option A (index 0). The correct answers MUST be varied and diverse across A, B, C, and D across the different questions.
+- Ensure "correct_option_index" matches the exact location of the correct option in "options".
+If not multiple choice, set "options": null and "correct_option_index": null.
 5. Set "difficulty": number from 1 to 5.
 
 Return ONLY valid JSON matching this schema:
@@ -400,8 +450,8 @@ Return ONLY valid JSON matching this schema:
       "problem_statement": "LaTeX problem statement string",
       "solution_guide": "LaTeX solution key steps",
       "problem_type": "multiple_choice",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
-      "correct_option_index": 0,
+      "options": ["Distractor A", "Distractor B", "Correct Choice C", "Distractor D"],
+      "correct_option_index": 2,
       "difficulty": 2
     }
   ]
@@ -431,10 +481,18 @@ Return ONLY valid JSON matching this schema:
       };
     }
 
+    const rawProblems: ParsedProblemSetItem[] = Array.isArray(parsed.problems) ? parsed.problems : [];
+    const problems = rawProblems.map((p) => {
+      if (p.problem_type === 'multiple_choice' || (Array.isArray(p.options) && p.options.length >= 2)) {
+        return shuffleProblemOptions(p);
+      }
+      return p;
+    });
+
     return {
       is_valid_problems: true,
       error_message: null,
-      problems: Array.isArray(parsed.problems) ? parsed.problems : [],
+      problems,
     };
   } catch (error: any) {
     console.error(`Error parsing problem set with Gemini (${modelName}):`, error);
