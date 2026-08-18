@@ -11,6 +11,7 @@ import {
 } from '@/app/actions/problems';
 import { createExerciseSetAction } from '@/app/actions/exercise';
 import { MathRenderer } from '@/components/MathRenderer';
+import { RichContentToolbar, handleClipboardImagePaste } from '@/components/RichContentToolbar';
 import { GeminiOCRModal } from './GeminiOCRModal';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { useToast } from '@/components/Toast';
@@ -547,13 +548,26 @@ export const ProblemManagerWorkspace: React.FC<ProblemManagerWorkspaceProps> = (
           {/* Statement & Live KaTeX Preview */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Problem Statement (LaTeX $...$ or $$...$$)
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Problem Statement (LaTeX, Plots, Diagrams & Images)
+                </label>
+              </div>
+              <RichContentToolbar
+                onInsert={(snippet) => setStatement((prev) => prev + snippet)}
+                className="mb-1"
+              />
               <textarea
                 rows={6}
                 value={statement}
                 onChange={(e) => setStatement(e.target.value)}
+                onPaste={(e) =>
+                  handleClipboardImagePaste(
+                    e,
+                    (snippet) => setStatement((prev) => prev + snippet),
+                    toast
+                  )
+                }
                 required
                 placeholder="e.g. Find the points of intersection of $y = -x + 1$ and $y = (x + 1)^2$."
                 className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-mono focus:ring-2 focus:ring-indigo-500"
@@ -563,13 +577,13 @@ export const ProblemManagerWorkspace: React.FC<ProblemManagerWorkspaceProps> = (
             <div className="space-y-2">
               <label className="block text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
                 <Eye className="w-3.5 h-3.5" />
-                <span>Live Math Statement Preview</span>
+                <span>Live Rich Statement Preview</span>
               </label>
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 min-h-[140px] text-xs leading-relaxed text-slate-800 dark:text-slate-200">
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 min-h-[140px] text-xs leading-relaxed text-slate-800 dark:text-slate-200 overflow-y-auto max-h-96">
                 {statement ? (
                   <MathRenderer content={statement} />
                 ) : (
-                  <span className="text-slate-400 italic">Statement will render here...</span>
+                  <span className="text-slate-400 italic">Statement, graphs, and images will render here...</span>
                 )}
               </div>
             </div>
@@ -662,17 +676,36 @@ export const ProblemManagerWorkspace: React.FC<ProblemManagerWorkspaceProps> = (
 
           {/* Solution Guide */}
           <div className="space-y-2">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Reference Solution Guide &amp; Key Steps (LaTeX)
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Reference Solution Guide &amp; Key Steps (LaTeX, Plots &amp; Diagrams)
+              </label>
+            </div>
+            <RichContentToolbar
+              onInsert={(snippet) => setSolution((prev) => prev + snippet)}
+              className="mb-1"
+            />
             <textarea
               rows={5}
               value={solution}
               onChange={(e) => setSolution(e.target.value)}
+              onPaste={(e) =>
+                handleClipboardImagePaste(
+                  e,
+                  (snippet) => setSolution((prev) => prev + snippet),
+                  toast
+                )
+              }
               required
               placeholder="e.g. Set equations equal: $-x + 1 = (x + 1)^2$. Expand: $-x + 1 = x^2 + 2x + 1 \implies x^2 + 3x = 0$."
               className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-mono focus:ring-2 focus:ring-indigo-500"
             />
+            {solution.trim() && (
+              <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-xs max-h-96 overflow-y-auto">
+                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Live Solution Preview</div>
+                <MathRenderer content={solution} />
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">

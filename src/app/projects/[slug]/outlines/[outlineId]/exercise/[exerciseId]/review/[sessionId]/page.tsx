@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { outlines, projects, problems, exercise_session_attempts, exercise_sets } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
 import { getCurrentUser } from '@/lib/auth';
 import { notFound } from 'next/navigation';
 import { ExerciseReviewWorkspace } from './ExerciseReviewWorkspace';
@@ -100,6 +101,12 @@ export default async function ExerciseReviewPage(props: ExerciseReviewPageProps)
     .where(and(eq(exercise_session_attempts.id, params.sessionId), eq(exercise_session_attempts.is_deleted, 0)))
     .get();
 
+  if (!selectedAnswers && dbSessionAttempt?.answers_json) {
+    try {
+      selectedAnswers = JSON.parse(dbSessionAttempt.answers_json);
+    } catch (e) {}
+  }
+
   // If the DB record is fully written (has finished_at), use it.
   // Otherwise the runner navigated before the background write completed — build a
   // synthetic record from the URL params the runner encoded for exactly this case.
@@ -153,6 +160,7 @@ export default async function ExerciseReviewPage(props: ExerciseReviewPageProps)
           selectedAnswers={selectedAnswers}
         />
       </main>
+      <Footer />
     </div>
   );
 }

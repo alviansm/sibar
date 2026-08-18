@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { projects, outlines } from '@/db/schema';
 import { eq, and, asc } from 'drizzle-orm';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { getCurrentUser } from '@/lib/auth';
@@ -89,6 +90,7 @@ export default async function SettingsPage(props: SettingsPageProps) {
         </div>
 
       </main>
+      <Footer />
     </div>
   );
 }

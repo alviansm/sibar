@@ -9,6 +9,7 @@ import {
   importProblemSetListAction,
 } from '@/app/actions/problems';
 import { MathRenderer } from '@/components/MathRenderer';
+import { RichContentToolbar, handleClipboardImagePaste } from '@/components/RichContentToolbar';
 import { GeminiOCRModal } from '../GeminiOCRModal';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { useToast } from '@/components/Toast';
@@ -355,20 +356,33 @@ export const ExampleManagerWorkspace: React.FC<ExampleManagerWorkspaceProps> = (
 
           {/* Problem Statement */}
           <div className="space-y-2">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Problem Statement (LaTeX supported: $x^2$)
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Problem Statement (LaTeX, Plots, Diagrams & Images supported)
+              </label>
+            </div>
+            <RichContentToolbar
+              onInsert={(snippet) => setStatement((prev) => prev + snippet)}
+              className="mb-1"
+            />
             <textarea
               required
               rows={4}
               value={statement}
               onChange={(e) => setStatement(e.target.value)}
-              placeholder="e.g. Find the roots of $f(x) = 2x^2 - 8$."
+              onPaste={(e) =>
+                handleClipboardImagePaste(
+                  e,
+                  (snippet) => setStatement((prev) => prev + snippet),
+                  toast
+                )
+              }
+              placeholder="e.g. Find the roots of $f(x) = 2x^2 - 8$ or embed graph/plot."
               className="w-full p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500"
             />
             {statement.trim() && (
-              <div className="p-4 rounded-2xl bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/60 text-xs">
-                <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1">Live LaTeX Preview</div>
+              <div className="p-4 rounded-2xl bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/60 text-xs max-h-96 overflow-y-auto">
+                <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1">Live Rich Content Preview</div>
                 <MathRenderer content={statement} />
               </div>
             )}
@@ -434,17 +448,36 @@ export const ExampleManagerWorkspace: React.FC<ExampleManagerWorkspaceProps> = (
 
           {/* Reference Solution */}
           <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Reference Solution Guide (LaTeX)
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Reference Solution Guide (LaTeX, Plots & Diagrams supported)
+              </label>
+            </div>
+            <RichContentToolbar
+              onInsert={(snippet) => setSolution((prev) => prev + snippet)}
+              className="mb-1"
+            />
             <textarea
               required
               rows={4}
               value={solution}
               onChange={(e) => setSolution(e.target.value)}
+              onPaste={(e) =>
+                handleClipboardImagePaste(
+                  e,
+                  (snippet) => setSolution((prev) => prev + snippet),
+                  toast
+                )
+              }
               placeholder="Step-by-step worked solution..."
               className="w-full p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-mono text-slate-900 dark:text-white"
             />
+            {solution.trim() && (
+              <div className="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-xs max-h-96 overflow-y-auto">
+                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Live Solution Preview</div>
+                <MathRenderer content={solution} />
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">

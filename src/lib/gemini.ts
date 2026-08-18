@@ -140,10 +140,27 @@ export async function parseProblemImage(
 Examine the uploaded image containing a mathematical or engineering problem.
 Transcribe and extract the problem with high precision.
 
+SPECIAL RENDERING ENGINE CAPABILITIES (APPLY WHEN RELEVANT):
+1. Cartesian Plane / 2D Function Graphs:
+If the image problem contains a graph, coordinate plane, curve (parabola, line, polynomial, trigonometric wave, exponential, etc.) or geometric plot:
+Convert the visual curve into an interactive \`\`\`plot code block in the "problem_statement" (or "solution_guide"):
+\`\`\`plot
+fn: <function expression(s), e.g. x^2 - 4 or sin(x) or 2*x + 1>
+range: [<xMin>, <xMax>]
+yDomain: [<yMin>, <yMax>]
+points: [[x1, y1, "Label 1"], [x2, y2, "Label 2"]]
+grid: true
+title: <Descriptive Graph Title>
+\`\`\`
+2. Graph Theory / Network Diagrams / Flowcharts:
+If the problem features nodes, edges, trees, or state machines, render them using a \`\`\`mermaid code block.
+3. Standard LaTeX Math:
+Always wrap inline equations with $...$ and standalone equations with $$...$$.
+
 Return ONLY a valid JSON object matching the following TypeScript interface (no markdown code fence formatting outside the JSON if possible, just raw valid JSON):
 
 {
-  "problem_statement": "Markdown string containing clean LaTeX math inline ($...$) or display ($$...$$).",
+  "problem_statement": "Markdown string containing clean LaTeX math inline ($...$) or display ($$...$$), plus optional \`\`\`plot or \`\`\`mermaid blocks if visual graphs appear in the problem.",
   "solution_guide": "Step-by-step LaTeX derivation or reference solution key.",
   "problem_type": "derivation" | "calculation" | "multiple_choice",
   "options": ["Option A LaTeX", "Option B LaTeX", "Option C LaTeX", "Option D LaTeX"] or null if not multiple choice,
@@ -426,6 +443,18 @@ Follow these custom instructions strictly (e.g., specific number of problems to 
 
 For EACH problem:
 1. Write the "problem_statement" in clean LaTeX ($...$ and $$...$$).
+VISUAL & GRAPH CONVERSION (CRITICAL):
+- If the problem in the image contains a Cartesian coordinate plane, function graph, curve (parabola, linear function, polynomial, sine/cosine wave, rational/exponential function), or geometric curve:
+  CONVERT IT into an interactive \`\`\`plot code block inside "problem_statement" (or "solution_guide"):
+  \`\`\`plot
+  fn: <function expression, e.g. x^2 - 4 or 2*x + 1 or sin(x)>
+  range: [<xMin>, <xMax>]
+  yDomain: [<yMin>, <yMax>]
+  points: [[x1, y1, "Label 1"], [x2, y2, "Label 2"]]
+  grid: true
+  title: <Descriptive Graph Title>
+  \`\`\`
+- If the problem features a network diagram, tree, state machine, or flowchart, convert it into a \`\`\`mermaid code block.
 2. Write a comprehensive "solution_guide" with step-by-step reasoning key in LaTeX explaining how to arrive at the correct answer.
 3. Set "problem_type": ${
     targetProblemType === 'multiple_choice'
@@ -565,4 +594,112 @@ Return ONLY a valid JSON object matching this schema (no markdown fences outside
   }
 }
 
+export interface ProblemAdjustmentInput {
+  problem_statement: string;
+  solution_guide: string;
+  problem_type: 'derivation' | 'calculation' | 'multiple_choice' | 'essay';
+  options?: string[] | null;
+  correct_option_indices?: number[] | null;
+  difficulty?: number;
+  instruction: string;
+}
 
+export interface AdjustedProblemResult {
+  problem_statement: string;
+  solution_guide: string;
+  problem_type: 'derivation' | 'calculation' | 'multiple_choice' | 'essay';
+  options: string[] | null;
+  correct_option_indices: number[];
+  difficulty: number;
+  ai_summary?: string;
+}
+
+export async function adjustProblemWithAI(
+  input: ProblemAdjustmentInput,
+  modelName: string = 'gemini-3.6-flash'
+): Promise<AdjustedProblemResult> {
+  const ai = getGeminiClient();
+
+  const prompt = `You are Sibar's AI STEM Question Refiner and Content Coach.
+You are tasked with adjusting, correcting, augmenting, or creating variations for a mathematics or STEM problem based on the user's instructions.
+
+CURRENT PROBLEM STATE:
+- Problem Statement:
+${input.problem_statement}
+
+- Solution Guide:
+${input.solution_guide}
+
+- Problem Type: ${input.problem_type}
+- Current Difficulty: ${input.difficulty || 2}/5
+${
+  input.options && input.options.length > 0
+    ? `- Current Options: ${JSON.stringify(input.options)}\n- Correct Option Indices: ${JSON.stringify(input.correct_option_indices || [0])}`
+    : ''
+}
+
+USER ADJUSTMENT INSTRUCTION:
+"${input.instruction}"
+
+CAPABILITIES & FORMAT RULES:
+1. Cartesian Function Plot / 2D Graph:
+If the user asks to add or adjust a graph/curve (or if a graph improves clarity), include an interactive \`\`\`plot block inside "problem_statement" (or "solution_guide"):
+\`\`\`plot
+fn: <expression, e.g. x^2 - 4 or sin(x) or 2*x + 1>
+range: [<xMin>, <xMax>]
+yDomain: [<yMin>, <yMax>]
+points: [[x1, y1, "Label 1"], [x2, y2, "Label 2"]]
+grid: true
+title: <Title>
+\`\`\`
+2. Diagram / Graph Theory / Flowchart:
+If requested, include a \`\`\`mermaid diagram block.
+3. LaTeX Math:
+Ensure all mathematical variables, formulas, and expressions use standard LaTeX ($...$ inline, $$...$$ display).
+4. Multiple Choice Accuracy:
+- If "multiple_choice", provide 2 to 5 options (strings with LaTeX or markdown).
+- Ensure "correct_option_indices" is an array of 0-based integers matching the exact location of the correct answer(s) (e.g. [0] or [2]).
+- Distribute the correct key logically and make distractors plausible based on common student misconceptions.
+5. Recalculation:
+If numbers or functions are changed, rigorously re-calculate the correct answer and step-by-step solution steps.
+
+Return ONLY a valid JSON object matching this schema (no markdown formatting outside the JSON):
+{
+  "problem_statement": "Updated problem statement string with LaTeX and optional \`\`\`plot / \`\`\`mermaid blocks",
+  "solution_guide": "Updated comprehensive step-by-step derivation / solution key",
+  "problem_type": "multiple_choice" | "essay" | "calculation" | "derivation",
+  "options": ["Option A", "Option B", "Option C", "Option D"] or null,
+  "correct_option_indices": [0],
+  "difficulty": integer 1-5,
+  "ai_summary": "1-2 sentences explaining what changes were made."
+}`;
+
+  try {
+    const { response } = await generateContentWithFallback(
+      ai,
+      modelName || 'gemini-3.6-flash',
+      [{ role: 'user', parts: [{ text: prompt }] }],
+      { responseMimeType: 'application/json' }
+    );
+
+    const responseText = response.text || '';
+    const parsed = JSON.parse(responseText.trim());
+
+    return {
+      problem_statement: parsed.problem_statement || input.problem_statement,
+      solution_guide: parsed.solution_guide || input.solution_guide,
+      problem_type: ['multiple_choice', 'essay', 'calculation', 'derivation'].includes(parsed.problem_type)
+        ? parsed.problem_type
+        : input.problem_type,
+      options: Array.isArray(parsed.options) ? parsed.options : null,
+      correct_option_indices: Array.isArray(parsed.correct_option_indices) && parsed.correct_option_indices.length > 0
+        ? parsed.correct_option_indices
+        : [0],
+      difficulty: typeof parsed.difficulty === 'number' ? Math.min(5, Math.max(1, parsed.difficulty)) : input.difficulty || 2,
+      ai_summary: parsed.ai_summary || 'Applied requested adjustments to question and solution.',
+    };
+  } catch (error: any) {
+    console.error(`Error adjusting problem with AI (${modelName}):`, error);
+    throw error;
+  }
+}

@@ -191,6 +191,15 @@ export const ExerciseLobbyWorkspace: React.FC<ExerciseLobbyWorkspaceProps> = ({
     return `${m}m`;
   };
 
+  const formatRemainingCountdown = (startedAt: number, totalSeconds: number) => {
+    const elapsed = Math.floor(Date.now() / 1000) - startedAt;
+    const remaining = Math.max(0, totalSeconds - elapsed);
+    const h = Math.floor(remaining / 3600);
+    const m = Math.floor((remaining % 3600) / 60);
+    if (h > 0) return `${h}h ${m}m remaining`;
+    return `${m}m remaining`;
+  };
+
   const formatElapsed = (startedAt: number) => {
     const elapsed = Math.floor(Date.now() / 1000) - startedAt;
     const h = Math.floor(elapsed / 3600);
@@ -249,11 +258,9 @@ export const ExerciseLobbyWorkspace: React.FC<ExerciseLobbyWorkspaceProps> = ({
                 {' · '}
                 {inProgressSession.timerMode !== 'none'
                   ? inProgressSession.timerMode === 'countdown'
-                    ? `${formatCountdown(inProgressSession.countdownSeconds)} countdown`
-                    : 'Stopwatch'
+                    ? `${formatRemainingCountdown(inProgressSession.startedAt, inProgressSession.countdownSeconds)} (${formatCountdown(inProgressSession.countdownSeconds)} total)`
+                    : `Stopwatch · ${formatElapsed(inProgressSession.startedAt)}`
                   : 'No Timer'}
-                {' · '}
-                {formatElapsed(inProgressSession.startedAt)}
               </p>
             </div>
           </div>

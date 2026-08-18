@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { projects, outlines, problems, problem_attempts, users } from '@/db/schema';
 import { eq, sql, and } from 'drizzle-orm';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
 import { getSession } from '@/lib/auth';
 import { formatSecondsToHHMMSS } from '@/lib/utils';
 import Link from 'next/link';
@@ -279,6 +280,7 @@ export default async function DashboardPage() {
         </div>
 
       </main>
+      <Footer />
     </div>
   );
 }

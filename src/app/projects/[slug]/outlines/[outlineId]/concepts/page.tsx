@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { outlines, projects } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { getCurrentUser } from '@/lib/auth';
@@ -87,6 +88,7 @@ export default async function SubchapterConceptsPage(props: SubchapterConceptsPa
         />
 
       </main>
+      <Footer />
     </div>
   );
 }

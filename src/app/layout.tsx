@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Sibar - Sinau Bareng Cognitive Telemetry',
+  title: 'Sibar - Cognitive Telemetry',
   description: 'AI-assisted self-learning archive that turns cognitive study into quantifiable training telemetry.',
   icons: {
     icon: '/favicon.ico',

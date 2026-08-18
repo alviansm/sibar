@@ -2,6 +2,7 @@ import React from 'react';
 import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
 import { SettingsWorkspace } from './SettingsWorkspace';
 import Link from 'next/link';
 import { ArrowLeft, UserCog } from 'lucide-react';
@@ -46,6 +47,7 @@ export default async function DedicatedSettingsPage() {
         <SettingsWorkspace user={user} />
 
       </div>
+      <Footer />
     </div>
   );
 }

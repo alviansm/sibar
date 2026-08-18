@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { outlines, projects, problems, exercise_sets } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
 import { getCurrentUser } from '@/lib/auth';
 import { notFound } from 'next/navigation';
 import { ExerciseEditorWorkspace } from './ExerciseEditorWorkspace';
@@ -112,6 +113,7 @@ export default async function DedicatedExercisePage(props: ExercisePageProps) {
           initialProblems={exerciseProblems}
         />
       </main>
+      <Footer />
     </div>
   );
 }

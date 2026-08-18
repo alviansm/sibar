@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { MathRenderer } from '@/components/MathRenderer';
 import { formatSecondsToHHMMSS } from '@/lib/utils';
-import { finishExerciseSessionAction, startExerciseSessionAction, saveSessionProgressAction } from '@/app/actions/exercise';
+import { finishExerciseSessionAction, startExerciseSessionAction, saveSessionProgressAction, abandonExerciseSessionAction } from '@/app/actions/exercise';
 import { logAttemptAction } from '@/app/actions/session';
 import { useToast } from '@/components/Toast';
 import { Breadcrumb } from '@/components/Breadcrumb';
@@ -169,6 +169,8 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
   const showLeaveModalRef = useRef(showLeaveModal);
   useEffect(() => { showLeaveModalRef.current = showLeaveModal; }, [showLeaveModal]);
   const sessionIdRef = useRef(sessionId);
+  useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
+  const isNavigatingIntentionallyRef = useRef(false);
 
   const currentProb = problems[currentIndex];
 
@@ -242,42 +244,50 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, []);
 
-  // 2. Intercept browser back/forward and Next.js client-side navigation (links, pushState)
+  // 2. Intercept any link clicks (Navbar, Breadcrumb, Logo, Links) across the page
   useEffect(() => {
-    // Save originals
-    const originalPushState = window.history.pushState.bind(window.history);
-    const originalReplaceState = window.history.replaceState.bind(window.history);
+    const handleClickCapture = (e: MouseEvent) => {
+      if (isSubmittingRef.current || isNavigatingIntentionallyRef.current) return;
 
-    // Monkey-patch pushState to intercept Next.js router.push / Link clicks
-    (window.history as any).pushState = function (state: any, title: string, url?: string | URL | null) {
-      if (url && !showLeaveModalRef.current && !isSubmittingRef.current) {
-        const targetUrl = url.toString();
-        // Only intercept if navigating away from current session page
-        if (targetUrl !== pathname && !targetUrl.includes('/session/')) {
-          setPendingNavUrl(targetUrl);
-          setShowLeaveModal(true);
-          return;
+      const target = e.target as HTMLElement | null;
+      const anchor = target?.closest('a');
+      if (!anchor || !anchor.href) return;
+      if (anchor.target === '_blank' || anchor.hasAttribute('download')) return;
+
+      try {
+        const targetUrl = new URL(anchor.href, window.location.href);
+        if (targetUrl.origin === window.location.origin) {
+          const isSamePage = targetUrl.pathname === window.location.pathname && targetUrl.search === window.location.search;
+          if (!isSamePage) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            setPendingNavUrl(anchor.href);
+            setShowLeaveModal(true);
+          }
         }
-      }
-      originalPushState(state, title, url);
+      } catch (err) {}
     };
 
-    // Intercept popstate (browser back/forward)
+    document.addEventListener('click', handleClickCapture, true);
+    return () => {
+      document.removeEventListener('click', handleClickCapture, true);
+    };
+  }, []);
+
+  // 3. Intercept browser back/forward (popstate)
+  useEffect(() => {
     const handlePopState = (e: PopStateEvent) => {
-      if (showLeaveModalRef.current || isSubmittingRef.current) return;
-      // Push the current URL back so we stay on the page
+      if (showLeaveModalRef.current || isSubmittingRef.current || isNavigatingIntentionallyRef.current) return;
       window.history.pushState(null, '', pathname);
-      setPendingNavUrl(null); // popstate doesn't give us the destination
+      setPendingNavUrl(null);
       setShowLeaveModal(true);
     };
 
     window.addEventListener('popstate', handlePopState);
-    // Push a sentinel state so the first popstate fires predictably
     window.history.pushState(null, '', pathname);
 
     return () => {
-      window.history.pushState = originalPushState;
-      (window.history as any).replaceState = originalReplaceState;
       window.removeEventListener('popstate', handlePopState);
     };
   }, [pathname]);
@@ -363,25 +373,18 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
 
     const targetExId = exerciseId || currentProb.exercise_id || outlineId;
     let activeSessionId = sessionId;
+    const finalAnswersJson = JSON.stringify(answersToGrade);
 
     if (!activeSessionId) {
-      startExerciseSessionAction(targetExId, outlineId, timerMode !== 'none', timerMode, totalCountdownSeconds)
-        .then((res) => {
-          if (res?.sessionId) {
-            finishExerciseSessionAction(res.sessionId, correctCount, totalCount, finalSeconds).catch(console.error);
-          }
-        })
-        .catch(console.error);
-      setIsSubmitting(false);
-      setShowLeaveModal(false);
-      setShowTimesUpModal(false);
-      toast('Exercise Submitted!', `Finished with ${correctCount}/${totalCount} correct answers.`, 'success');
-      // Navigate directly without triggering guard since we're done
-      doNavigate(`/projects/${slug}?sub=${outlineId}`);
-      return;
+      const res = await startExerciseSessionAction(targetExId, outlineId, timerMode !== 'none', timerMode, totalCountdownSeconds).catch(() => null);
+      if (res?.sessionId) {
+        activeSessionId = res.sessionId;
+        await finishExerciseSessionAction(res.sessionId, correctCount, totalCount, finalSeconds, 70, finalAnswersJson).catch(console.error);
+      }
+    } else {
+      finishExerciseSessionAction(activeSessionId, correctCount, totalCount, finalSeconds, 70, finalAnswersJson).catch(console.error);
     }
 
-    finishExerciseSessionAction(activeSessionId, correctCount, totalCount, finalSeconds).catch(console.error);
     Promise.all(
       gradedProblems.map(({ prob, selected, isMcqCorrect }) =>
         logAttemptAction(
@@ -411,10 +414,9 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
     doNavigate(`/projects/${slug}/outlines/${outlineId}/exercise/${targetExId}/review/${activeSessionId}?${reviewParams.toString()}`);
   };
 
-  // Navigate bypassing the guard (used after submit/abandon when we intentionally leave)
+  // Navigate bypassing the guard (used after submit/abandon/temporary leave when we intentionally leave)
   const doNavigate = (url: string) => {
-    // Temporarily restore original pushState for this navigation
-    const orig = (window.history as any).__origPush ?? window.history.pushState;
+    isNavigatingIntentionallyRef.current = true;
     try {
       router.push(url);
     } catch (e) {
@@ -422,9 +424,21 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
     }
   };
 
-  const handleAbandonExercise = () => {
+  const handleLeaveTemporary = async () => {
     setShowLeaveModal(false);
-    toast('Exercise Abandoned', 'Session left without logging score.', 'info');
+    await saveProgress();
+    toast('Session Saved', 'You can resume this exercise anytime from the study project.', 'info');
+    const dest = pendingNavUrl ?? `/projects/${slug}?sub=${outlineId}`;
+    setPendingNavUrl(null);
+    doNavigate(dest);
+  };
+
+  const handleAbandonExercise = async () => {
+    setShowLeaveModal(false);
+    if (sessionIdRef.current) {
+      await abandonExerciseSessionAction(sessionIdRef.current).catch(() => {});
+    }
+    toast('Exercise Abandoned', 'Session discarded without logging score.', 'info');
     const dest = pendingNavUrl ?? `/projects/${slug}?sub=${outlineId}`;
     setPendingNavUrl(null);
     doNavigate(dest);
@@ -699,24 +713,43 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
 
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
               You are currently in an active exercise session.
-              {sessionId ? ' Your progress is auto-saved and you can resume later from the lobby.' : ''}
+              {sessionId ? ' Your progress is auto-saved and you can resume later from the study project.' : ''}
               {' '}What would you like to do?
             </p>
 
             <div className="space-y-2.5">
-              <button type="button" onClick={handleLeaveModalSubmit} disabled={isSubmitting}
-                className="w-full py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-indigo-600/30 transition-all disabled:opacity-50">
+              <button
+                type="button"
+                onClick={handleLeaveModalSubmit}
+                disabled={isSubmitting}
+                className="w-full py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-indigo-600/30 transition-all disabled:opacity-50"
+              >
                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Award className="w-4 h-4" />}
                 <span>{isSubmitting ? 'Submitting…' : 'Submit & View Results'}</span>
               </button>
 
-              <button type="button" onClick={handleAbandonExercise}
-                className="w-full py-3 px-4 rounded-2xl bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 text-rose-600 dark:text-rose-400 border border-rose-200/80 font-bold text-xs transition-all">
+              <button
+                type="button"
+                onClick={handleLeaveTemporary}
+                className="w-full py-3 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-amber-500/20 transition-all"
+              >
+                <Clock className="w-4 h-4" />
+                <span>Leave Temporarily (Resume Later)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleAbandonExercise}
+                className="w-full py-2.5 px-4 rounded-2xl bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 text-rose-600 dark:text-rose-400 border border-rose-200/80 font-bold text-xs transition-all"
+              >
                 Abandon (Leave Without Submitting)
               </button>
 
-              <button type="button" onClick={handleLeaveModalResume}
-                className="w-full py-2.5 px-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs hover:bg-slate-200 transition-all">
+              <button
+                type="button"
+                onClick={handleLeaveModalResume}
+                className="w-full py-2.5 px-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs hover:bg-slate-200 transition-all"
+              >
                 Resume Session
               </button>
             </div>
