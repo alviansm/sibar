@@ -14,12 +14,16 @@ interface SessionPageProps {
   searchParams: Promise<{
     exerciseId?: string;
     sessionId?: string;
-    /** Legacy support: timed=1 maps to stopwatch mode */
-    timed?: string;
     /** New: 'none' | 'stopwatch' | 'countdown' */
     timerMode?: string;
-    /** Countdown duration in seconds (only relevant when timerMode=countdown) */
+    /** Countdown total seconds */
     countdown?: string;
+    /** Unix timestamp of when the session was created (server-side) */
+    startedAt?: string;
+    /** Legacy: timed=1 maps to stopwatch */
+    timed?: string;
+    /** Base64-encoded JSON of pre-loaded answers for resume */
+    answers?: string;
   }>;
 }
 
@@ -34,9 +38,7 @@ export default async function PracticeSessionPage(props: SessionPageProps) {
     .where(and(eq(outlines.id, params.outlineId), eq(outlines.is_deleted, 0)))
     .get();
 
-  if (!outline) {
-    notFound();
-  }
+  if (!outline) notFound();
 
   const project = db
     .select()
@@ -44,9 +46,7 @@ export default async function PracticeSessionPage(props: SessionPageProps) {
     .where(and(eq(projects.id, outline.project_id), eq(projects.is_deleted, 0)))
     .get();
 
-  if (!project) {
-    notFound();
-  }
+  if (!project) notFound();
 
   let problemSet = db
     .select()
@@ -64,18 +64,31 @@ export default async function PracticeSessionPage(props: SessionPageProps) {
     ? db.select().from(outlines).where(and(eq(outlines.id, outline.parent_id), eq(outlines.is_deleted, 0))).get()
     : null;
 
-  // Resolve timer mode — support both legacy ?timed=1 and new ?timerMode=
+  // Resolve timer mode (support legacy ?timed=1)
   let timerMode: 'none' | 'stopwatch' | 'countdown' = 'none';
   if (searchParams.timerMode === 'stopwatch' || searchParams.timerMode === 'countdown') {
     timerMode = searchParams.timerMode;
-  } else if (searchParams.timerMode === 'none') {
-    timerMode = 'none';
   } else if (searchParams.timed === '1') {
-    // Legacy support
     timerMode = 'stopwatch';
   }
 
-  const countdownSeconds = searchParams.countdown ? parseInt(searchParams.countdown, 10) || 0 : 0;
+  const countdownSeconds = searchParams.countdown ? Math.max(0, parseInt(searchParams.countdown, 10) || 0) : 0;
+  const startedAt = searchParams.startedAt ? parseInt(searchParams.startedAt, 10) || null : null;
+
+  // Decode pre-loaded answers for resume
+  let initialAnswers: Record<number, string> | undefined;
+  if (searchParams.answers) {
+    try {
+      const decoded = decodeURIComponent(atob(searchParams.answers));
+      const parsed = JSON.parse(decoded);
+      if (typeof parsed === 'object' && parsed !== null) {
+        // Keys come back as strings from JSON; convert to numbers
+        initialAnswers = Object.fromEntries(
+          Object.entries(parsed).map(([k, v]) => [Number(k), v as string])
+        );
+      }
+    } catch (e) {}
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
@@ -94,6 +107,8 @@ export default async function PracticeSessionPage(props: SessionPageProps) {
           exerciseId={searchParams.exerciseId}
           timerMode={timerMode}
           countdownSeconds={countdownSeconds}
+          startedAt={startedAt ?? undefined}
+          initialAnswers={initialAnswers}
         />
       </main>
     </div>

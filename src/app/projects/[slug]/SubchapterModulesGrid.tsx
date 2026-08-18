@@ -25,6 +25,8 @@ import {
   Award,
   Clock,
   RotateCcw,
+  RotateCw,
+  AlarmClock,
 } from 'lucide-react';
 import { MathRenderer } from '@/components/MathRenderer';
 import { LottieEmptyState } from '@/components/LottieEmptyState';
@@ -563,10 +565,16 @@ export const SubchapterModulesGrid: React.FC<SubchapterModulesGridProps> = ({
                             <Layers className="w-4 h-4" />
                           </span>
                           <span className="text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/60 px-2 py-0.5 rounded border border-violet-200/40">EXERCISE</span>
-                          <span className="text-[10px] font-mono font-bold text-slate-500 flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {exSet.is_timed ? 'Timed' : 'Untimed'}
-                          </span>
+                          {exSet.inProgressSession ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                              <RotateCw className="w-3 h-3 animate-spin-slow" /> In Progress
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-mono font-bold text-slate-500 flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {exSet.is_timed ? 'Timed' : 'Untimed'}
+                            </span>
+                          )}
                         </div>
                         <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">{exSet.title}</h3>
                         {exSet.description && (
@@ -596,13 +604,23 @@ export const SubchapterModulesGrid: React.FC<SubchapterModulesGridProps> = ({
                   </div>
 
                   {/* CTA */}
-                  <Link
-                    href={`/projects/${slug}/outlines/${activeSubchapter.id}/exercise/${exSet.id}/lobby`}
-                    className="w-full py-3 px-4 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 shadow-md shadow-violet-600/30 transition-all m3-ripple"
-                  >
-                    <Play className="w-4 h-4 fill-white" />
-                    <span>{exSet.questionCount === 0 ? 'Add Questions to Start' : 'Start Exercise'}</span>
-                  </Link>
+                  {exSet.inProgressSession ? (
+                    <Link
+                      href={`/projects/${slug}/outlines/${activeSubchapter.id}/exercise/${exSet.id}/lobby`}
+                      className="w-full py-3 px-4 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 shadow-md shadow-amber-600/30 transition-all m3-ripple"
+                    >
+                      <RotateCw className="w-4 h-4" />
+                      <span>Resume Exercise</span>
+                    </Link>
+                  ) : (
+                    <Link
+                      href={`/projects/${slug}/outlines/${activeSubchapter.id}/exercise/${exSet.id}/lobby`}
+                      className="w-full py-3 px-4 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 shadow-md shadow-violet-600/30 transition-all m3-ripple"
+                    >
+                      <Play className="w-4 h-4 fill-white" />
+                      <span>{exSet.questionCount === 0 ? 'Add Questions to Start' : 'Start Exercise'}</span>
+                    </Link>
+                  )}
                 </div>
               );
             }

@@ -1,7 +1,7 @@
 import React from 'react';
 import { db } from '@/db';
-import { projects, outlines, problems, problem_attempts, exercise_sets } from '@/db/schema';
-import { eq, and, asc } from 'drizzle-orm';
+import { projects, outlines, problems, problem_attempts, exercise_sets, exercise_session_attempts } from '@/db/schema';
+import { eq, and, asc, desc } from 'drizzle-orm';
 import { Navbar } from '@/components/Navbar';
 import { getCurrentUser } from '@/lib/auth';
 import { notFound } from 'next/navigation';
@@ -204,12 +204,37 @@ export default async function ProjectDetailPage(props: ProjectPageProps) {
       const essayCount = setProblems.filter((p) => p.problem_type === 'essay').length;
       const otherCount = setProblems.length - mcqCount - essayCount;
 
+      // Detect in-progress session: most recent attempt with no finished_at
+      const latestAttempt = db
+        .select()
+        .from(exercise_session_attempts)
+        .where(
+          and(
+            eq(exercise_session_attempts.exercise_id, exSet.id),
+            eq(exercise_session_attempts.is_deleted, 0)
+          )
+        )
+        .orderBy(desc(exercise_session_attempts.started_at))
+        .get();
+
+      const inProgressSession =
+        latestAttempt && latestAttempt.finished_at === null
+          ? {
+              sessionId: latestAttempt.id,
+              startedAt: latestAttempt.started_at,
+              timerMode: (latestAttempt.timer_mode as 'none' | 'stopwatch' | 'countdown') || 'none',
+              countdownSeconds: latestAttempt.countdown_seconds || 0,
+              answersJson: latestAttempt.answers_json ?? null,
+            }
+          : null;
+
       return {
         ...exSet,
         questionCount: setProblems.length,
         mcqCount,
         essayCount,
         otherCount,
+        inProgressSession,
       };
     });
   }

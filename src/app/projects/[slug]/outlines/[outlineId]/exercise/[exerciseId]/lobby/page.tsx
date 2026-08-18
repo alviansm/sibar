@@ -5,7 +5,7 @@ import { eq, and, desc } from 'drizzle-orm';
 import { Navbar } from '@/components/Navbar';
 import { getCurrentUser } from '@/lib/auth';
 import { notFound } from 'next/navigation';
-import { ExerciseLobbyWorkspace } from './ExerciseLobbyWorkspace';
+import { ExerciseLobbyWorkspace, type InProgressSession } from './ExerciseLobbyWorkspace';
 
 export const revalidate = 0;
 
@@ -70,7 +70,7 @@ export default async function ExerciseLobbyPage(props: ExerciseLobbyPageProps) {
         is_timed: 1,
         is_deleted: 0,
         created_at: now,
-      };
+      } as any;
     } else {
       notFound();
     }
@@ -93,7 +93,7 @@ export default async function ExerciseLobbyPage(props: ExerciseLobbyPageProps) {
   const essayCount = exerciseProblems.filter((p) => p.problem_type === 'essay').length;
   const otherCount = exerciseProblems.length - mcqCount - essayCount;
 
-  // Fetch previous session attempts
+  // Fetch previous session attempts (most recent first)
   const previousAttempts = db
     .select()
     .from(exercise_session_attempts)
@@ -115,7 +115,33 @@ export default async function ExerciseLobbyPage(props: ExerciseLobbyPageProps) {
       : null;
 
   const hasPassed = finishedAttempts.some((a) => a.is_passed === 1);
-  const lastAttempt = previousAttempts[0] || null;
+
+  // Detect in-progress session: most recent attempt with no finished_at
+  const latestAttempt = previousAttempts[0] || null;
+  let inProgressSession: InProgressSession | null = null;
+
+  if (latestAttempt && latestAttempt.finished_at === null) {
+    // Count how many answers are saved
+    let answeredCount = 0;
+    if (latestAttempt.answers_json) {
+      try {
+        const parsed = JSON.parse(latestAttempt.answers_json);
+        answeredCount = Object.keys(parsed).length;
+      } catch (e) {}
+    }
+
+    inProgressSession = {
+      sessionId: latestAttempt.id,
+      startedAt: latestAttempt.started_at,
+      timerMode: (latestAttempt.timer_mode as 'none' | 'stopwatch' | 'countdown') || 'none',
+      countdownSeconds: latestAttempt.countdown_seconds || 0,
+      answersJson: latestAttempt.answers_json ?? null,
+      answeredCount,
+    };
+  }
+
+  // Last *finished* attempt for review link
+  const lastFinishedAttempt = finishedAttempts[0] || null;
 
   const parentChapter = outline.parent_id
     ? db.select().from(outlines).where(and(eq(outlines.id, outline.parent_id), eq(outlines.is_deleted, 0))).get()
@@ -134,20 +160,21 @@ export default async function ExerciseLobbyPage(props: ExerciseLobbyPageProps) {
           subchapterCode={outline.code}
           subchapterTitle={outline.title}
           parentChapter={parentChapter ? { id: parentChapter.id, code: parentChapter.code, title: parentChapter.title } : null}
-          exerciseTitle={exerciseSet.title}
-          exerciseDescription={exerciseSet.description}
+          exerciseTitle={exerciseSet!.title}
+          exerciseDescription={exerciseSet!.description}
           questionCount={exerciseProblems.length}
           mcqCount={mcqCount}
           essayCount={essayCount}
           otherCount={otherCount}
-          isTimed={exerciseSet.is_timed === 1}
+          isTimed={exerciseSet!.is_timed === 1}
           attemptsCount={attemptsCount}
           bestScorePct={bestScorePct}
           hasPassed={hasPassed}
-          passingGrade={exerciseSet.passing_grade}
-          lastAttemptDuration={lastAttempt?.duration_seconds || null}
-          lastAttemptFinishedAt={lastAttempt?.finished_at || null}
-          lastAttemptSessionId={lastAttempt?.id || null}
+          passingGrade={exerciseSet!.passing_grade}
+          lastAttemptDuration={lastFinishedAttempt?.duration_seconds || null}
+          lastAttemptFinishedAt={lastFinishedAttempt?.finished_at || null}
+          lastAttemptSessionId={lastFinishedAttempt?.id || null}
+          inProgressSession={inProgressSession}
         />
       </main>
     </div>

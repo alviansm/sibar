@@ -116,6 +116,14 @@ export const exercise_session_attempts = sqliteTable('exercise_session_attempts'
   is_passed: integer('is_passed').notNull().default(0),
   attempt_number: integer('attempt_number').notNull().default(1),
   is_timed: integer('is_timed').notNull().default(0),
+  /** 'none' | 'stopwatch' | 'countdown' */
+  timer_mode: text('timer_mode').notNull().default('none'),
+  /** Total countdown seconds; 0 if not countdown */
+  countdown_seconds: integer('countdown_seconds').notNull().default(0),
+  /** JSON-serialised Record<number, string> of in-progress answers */
+  answers_json: text('answers_json'),
+  /** Unix timestamp of last auto-save */
+  last_saved_at: integer('last_saved_at'),
   is_deleted: integer('is_deleted').notNull().default(0),
   created_at: integer('created_at').notNull(),
 });

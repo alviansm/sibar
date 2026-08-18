@@ -140,6 +140,21 @@ function ensureTablesExist() {
     sqlite.exec(`ALTER TABLE exercise_sets ADD COLUMN is_timed INTEGER NOT NULL DEFAULT 1`);
   } catch (e) {}
 
+  // New columns for session persistence & server-side timer
+  try {
+    sqlite.exec(`ALTER TABLE exercise_session_attempts ADD COLUMN timer_mode TEXT NOT NULL DEFAULT 'none'`);
+  } catch (e) {}
+  try {
+    sqlite.exec(`ALTER TABLE exercise_session_attempts ADD COLUMN countdown_seconds INTEGER NOT NULL DEFAULT 0`);
+  } catch (e) {}
+  try {
+    sqlite.exec(`ALTER TABLE exercise_session_attempts ADD COLUMN answers_json TEXT`);
+  } catch (e) {}
+  try {
+    sqlite.exec(`ALTER TABLE exercise_session_attempts ADD COLUMN last_saved_at INTEGER`);
+  } catch (e) {}
+
+
   // Create rate limit & exercise tables if missing
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS rate_limit_attempts (
