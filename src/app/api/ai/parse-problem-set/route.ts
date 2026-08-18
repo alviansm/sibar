@@ -35,7 +35,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ success: true, data: result.problems });
+    return NextResponse.json({
+      success: true,
+      data: result.problems,
+      rationale: result.selection_rationale || null,
+    });
   } catch (error: any) {
     console.error('Error in /api/ai/parse-problem-set:', error);
     return NextResponse.json(

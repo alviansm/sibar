@@ -35,6 +35,7 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
   const [userInstructions, setUserInstructions] = useState('');
   const [stagedImages, setStagedImages] = useState<StagedPhoto[]>([]);
   const [extractedProblems, setExtractedProblems] = useState<any[]>([]);
+  const [selectionRationale, setSelectionRationale] = useState<string | null>(null);
 
   const resetModal = () => {
     setStep(1);
@@ -42,6 +43,7 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
     setError('');
     setUserInstructions('');
     setExtractedProblems([]);
+    setSelectionRationale(null);
     setLoading(false);
   };
 
@@ -110,7 +112,8 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
       }
 
       setExtractedProblems(json.data);
-      setStep(2); // Move to Step 2: Format Selection & Confirmation
+      setSelectionRationale(json.rationale || null);
+      setStep(2); // Move to Step 2: Review & Save
     } catch (err: any) {
       setError(err.message || 'Error running Gemini AI OCR');
       toast('OCR Failed', err.message || 'Could not digitize textbook problem set page(s).', 'error');
@@ -120,9 +123,10 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
   };
 
   const handleFinalImport = () => {
-    // Transform extracted problems according to user selected targetType
+    // Transform extracted problems according to targetType
     const formatted = extractedProblems.map((p) => {
-      if (targetType === 'multiple_choice') {
+      const isMcq = p.problem_type === 'multiple_choice' || (Array.isArray(p.options) && p.options.length >= 2);
+      if (isMcq || targetType === 'multiple_choice') {
         const hasValidOpts = Array.isArray(p.options) && p.options.length >= 2;
         const options = hasValidOpts ? p.options : ['Option A', 'Option B', 'Option C', 'Option D'];
         const correct_option_index =
@@ -130,7 +134,7 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
           p.correct_option_index >= 0 &&
           p.correct_option_index < options.length
             ? p.correct_option_index
-            : Math.floor(Math.random() * options.length);
+            : 0;
 
         return {
           ...p,
@@ -142,7 +146,7 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
 
       return {
         ...p,
-        problem_type: targetType,
+        problem_type: 'essay' as const,
         options: null,
         correct_option_index: null,
       };
@@ -189,13 +193,13 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
                 <span className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
                   step === 1 ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
                 }`}>
-                  Step 1: Upload Photo
+                  Step 1: Upload &amp; Configure
                 </span>
                 <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
                 <span className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
                   step === 2 ? 'bg-indigo-600 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'
                 }`}>
-                  Step 2: Format &amp; Save
+                  Step 2: Review &amp; Save
                 </span>
               </div>
 
@@ -208,31 +212,66 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
               </h3>
               <p className="text-xs text-slate-500">
                 {step === 1
-                  ? 'Upload one or multiple screenshots/photos of textbook exercise pages (e.g. Problem Set 0.4).'
-                  : 'Select your preferred question format mode for this exercise set.'}
+                  ? 'Upload photos, select your question format, and add optional AI instructions.'
+                  : 'Review extracted questions and pedagogical rationale before saving.'}
               </p>
             </div>
 
-            {/* STEP 1: Upload & Model Selection */}
+            {/* STEP 1: Upload & Model Selection & Format Selection */}
             {step === 1 && (
               <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center gap-1.5">
-                    <Cpu className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                    <span>Gemini Model</span>
-                  </label>
-                  <select
-                    value={selectedModel}
-                    onChange={(e) => setSelectedModel(e.target.value)}
-                    disabled={loading}
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-semibold text-slate-900 dark:text-white"
-                  >
-                    {AVAILABLE_GEMINI_MODELS.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name}
-                      </option>
-                    ))}
-                  </select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center gap-1.5">
+                      <Cpu className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                      <span>Gemini Model</span>
+                    </label>
+                    <select
+                      value={selectedModel}
+                      onChange={(e) => setSelectedModel(e.target.value)}
+                      disabled={loading}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-semibold text-slate-900 dark:text-white"
+                    >
+                      {AVAILABLE_GEMINI_MODELS.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                      <span>Question Format Mode</span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700">
+                      <button
+                        type="button"
+                        onClick={() => setTargetType('multiple_choice')}
+                        disabled={loading}
+                        className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                          targetType === 'multiple_choice'
+                            ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                        }`}
+                      >
+                        <span>Multiple Choice</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTargetType('essay')}
+                        disabled={loading}
+                        className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                          targetType === 'essay'
+                            ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                        }`}
+                      >
+                        <span>Essay / Freeform</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 <div>
@@ -245,8 +284,8 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
                     value={userInstructions}
                     onChange={(e) => setUserInstructions(e.target.value)}
                     disabled={loading}
-                    placeholder='e.g. "Pick 10 hardest problems across these pages, all multiple choice" or "Make variant questions based on these pages"'
-                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500"
+                    placeholder='e.g. "Pick 20 most important questions", "5 hardest problems with tricky distractors", or "Make variant questions based on these pages"'
+                    className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 resize-none"
                   />
                 </div>
 
@@ -264,7 +303,7 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
                     <div className="py-8 space-y-3">
                       <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mx-auto" />
                       <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-                        Gemini AI is digesting {stagedImages.length} textbook page photo{stagedImages.length === 1 ? '' : 's'} into LaTeX problem set...
+                        Gemini AI is digesting {stagedImages.length} textbook page photo{stagedImages.length === 1 ? '' : 's'} into {targetType === 'multiple_choice' ? 'multiple choice' : 'essay'} problem set...
                       </p>
                     </div>
                   ) : stagedImages.length > 0 ? (
@@ -389,59 +428,33 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
               </div>
             )}
 
-            {/* STEP 2: Format Mode Selection & Preview */}
+            {/* STEP 2: Review & Save */}
             {step === 2 && (
-              <div className="space-y-6 animate-in fade-in duration-200">
-                {/* Format Mode Selector */}
-                <div className="space-y-2">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
-                    Select Exercise Question Format
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setTargetType('multiple_choice')}
-                      className={`p-4 rounded-2xl border text-left space-y-1 transition-all ${
-                        targetType === 'multiple_choice'
-                          ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-500 text-indigo-900 dark:text-indigo-200 shadow-sm'
-                          : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-600'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between font-bold text-xs">
-                        <span>Multiple Choice</span>
-                        {targetType === 'multiple_choice' && <CheckCircle2 className="w-4 h-4 text-indigo-600" />}
-                      </div>
-                      <p className="text-[11px] text-slate-500">
-                        Interactive quiz format with choices and 1 correct answer key.
-                      </p>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setTargetType('essay')}
-                      className={`p-4 rounded-2xl border text-left space-y-1 transition-all ${
-                        targetType === 'essay'
-                          ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-500 text-indigo-900 dark:text-indigo-200 shadow-sm'
-                          : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-600'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between font-bold text-xs">
-                        <span>Essay / Freeform</span>
-                        {targetType === 'essay' && <CheckCircle2 className="w-4 h-4 text-indigo-600" />}
-                      </div>
-                      <p className="text-[11px] text-slate-500">
-                        Step-by-step problem statements with LaTeX solution keys.
-                      </p>
-                    </button>
+              <div className="space-y-4 animate-in fade-in duration-200">
+                {/* AI Rationale / Explanation Card */}
+                {selectionRationale && (
+                  <div className="p-4 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/80 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-300">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                      <span>AI Selection &amp; Prompt Rationale</span>
+                    </div>
+                    <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+                      {selectionRationale}
+                    </p>
                   </div>
-                </div>
+                )}
 
                 {/* Extracted Items Preview List */}
                 <div className="space-y-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    Extracted Problems Preview ({extractedProblems.length})
-                  </span>
-                  <div className="max-h-56 overflow-y-auto space-y-2.5 pr-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      Extracted Problems Preview ({extractedProblems.length})
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60">
+                      Format: {targetType === 'multiple_choice' ? 'Multiple Choice' : 'Essay / Freeform'}
+                    </span>
+                  </div>
+                  <div className="max-h-60 overflow-y-auto space-y-2.5 pr-1">
                     {extractedProblems.map((p, i) => (
                       <div key={i} className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-xs space-y-2">
                         <div>
@@ -449,7 +462,8 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
                           <MathRenderer content={p.problem_statement} />
                         </div>
 
-                        {targetType === 'multiple_choice' && p.options && Array.isArray(p.options) && p.options.length > 0 && (
+                        {/* Multiple Choice Options Preview */}
+                        {p.options && Array.isArray(p.options) && p.options.length > 0 && (
                           <div className="grid grid-cols-2 gap-1.5 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
                             {p.options.map((opt: string, optIdx: number) => {
                               const isCorrect = (typeof p.correct_option_index === 'number' ? p.correct_option_index : 0) === optIdx;
@@ -474,6 +488,14 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
                             })}
                           </div>
                         )}
+
+                        {/* Essay / Derivation Solution Guide Preview */}
+                        {(!p.options || p.problem_type === 'essay' || targetType === 'essay') && p.solution_guide && (
+                          <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 text-[11px] text-slate-600 dark:text-slate-300">
+                            <span className="font-bold text-slate-500 dark:text-slate-400 block mb-0.5">Solution Guide:</span>
+                            <MathRenderer content={p.solution_guide} />
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -484,9 +506,9 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
                   <button
                     type="button"
                     onClick={() => setStep(1)}
-                    className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
                   >
-                    Back to Photo
+                    Back to Edit &amp; Photos
                   </button>
                   <button
                     type="button"

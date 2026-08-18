@@ -390,6 +390,7 @@ export interface ParsedProblemSetItem {
 export interface ParsedProblemSetResult {
   is_valid_problems: boolean;
   error_message: string | null;
+  selection_rationale?: string | null;
   problems: ParsedProblemSetItem[];
 }
 
@@ -440,11 +441,13 @@ CRITICAL FOR MULTIPLE CHOICE:
 - Ensure "correct_option_index" matches the exact location of the correct option in "options".
 If not multiple choice, set "options": null and "correct_option_index": null.
 5. Set "difficulty": number from 1 to 5.
+6. In "selection_rationale", provide a concise 1 to 3 sentence explanation explaining the pedagogical reasoning behind why these specific problems were selected or generated based on the user's prompt (e.g. why they represent the core concepts, their difficulty progression, or how they align with the instructions).
 
 Return ONLY valid JSON matching this schema:
 {
   "is_valid_problems": boolean,
   "error_message": string | null,
+  "selection_rationale": "1-3 sentences explaining why these specific problems were selected/generated to fulfill the prompt.",
   "problems": [
     {
       "problem_statement": "LaTeX problem statement string",
@@ -492,6 +495,7 @@ Return ONLY valid JSON matching this schema:
     return {
       is_valid_problems: true,
       error_message: null,
+      selection_rationale: typeof parsed.selection_rationale === 'string' ? parsed.selection_rationale.trim() : null,
       problems,
     };
   } catch (error: any) {
@@ -499,6 +503,7 @@ Return ONLY valid JSON matching this schema:
     return {
       is_valid_problems: false,
       error_message: error.message || 'Failed to digitize problem set image.',
+      selection_rationale: null,
       problems: [],
     };
   }
