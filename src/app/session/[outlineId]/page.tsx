@@ -11,7 +11,16 @@ export const revalidate = 0;
 
 interface SessionPageProps {
   params: Promise<{ outlineId: string }>;
-  searchParams: Promise<{ exerciseId?: string; sessionId?: string; timed?: string }>;
+  searchParams: Promise<{
+    exerciseId?: string;
+    sessionId?: string;
+    /** Legacy support: timed=1 maps to stopwatch mode */
+    timed?: string;
+    /** New: 'none' | 'stopwatch' | 'countdown' */
+    timerMode?: string;
+    /** Countdown duration in seconds (only relevant when timerMode=countdown) */
+    countdown?: string;
+  }>;
 }
 
 export default async function PracticeSessionPage(props: SessionPageProps) {
@@ -55,6 +64,19 @@ export default async function PracticeSessionPage(props: SessionPageProps) {
     ? db.select().from(outlines).where(and(eq(outlines.id, outline.parent_id), eq(outlines.is_deleted, 0))).get()
     : null;
 
+  // Resolve timer mode — support both legacy ?timed=1 and new ?timerMode=
+  let timerMode: 'none' | 'stopwatch' | 'countdown' = 'none';
+  if (searchParams.timerMode === 'stopwatch' || searchParams.timerMode === 'countdown') {
+    timerMode = searchParams.timerMode;
+  } else if (searchParams.timerMode === 'none') {
+    timerMode = 'none';
+  } else if (searchParams.timed === '1') {
+    // Legacy support
+    timerMode = 'stopwatch';
+  }
+
+  const countdownSeconds = searchParams.countdown ? parseInt(searchParams.countdown, 10) || 0 : 0;
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
       <Navbar username={user?.username || 'admin'} fullName={user?.fullName} />
@@ -70,7 +92,8 @@ export default async function PracticeSessionPage(props: SessionPageProps) {
           problems={problemSet}
           sessionId={searchParams.sessionId}
           exerciseId={searchParams.exerciseId}
-          initialIsTimed={searchParams.timed === '1'}
+          timerMode={timerMode}
+          countdownSeconds={countdownSeconds}
         />
       </main>
     </div>

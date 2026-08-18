@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { MathRenderer } from '@/components/MathRenderer';
@@ -29,7 +29,11 @@ import {
   LayoutGrid,
   ChevronDown,
   Check,
+  AlarmClock,
+  TimerOff,
 } from 'lucide-react';
+
+type TimerMode = 'none' | 'stopwatch' | 'countdown';
 
 interface PracticeSessionRunnerProps {
   outlineId: string;
@@ -41,8 +45,49 @@ interface PracticeSessionRunnerProps {
   problems: any[];
   sessionId?: string;
   exerciseId?: string;
+  /** New unified timer mode */
+  timerMode?: TimerMode;
+  /** Countdown duration in seconds (only used when timerMode='countdown') */
+  countdownSeconds?: number;
+  /** @deprecated use timerMode='stopwatch' instead */
   initialIsTimed?: boolean;
 }
+
+// Warning thresholds for countdown mode
+type WarningKey = 'half' | 'fifteen' | 'five';
+
+interface WarningConfig {
+  key: WarningKey;
+  title: string;
+  message: string;
+  /** Predicate: returns true when this warning should fire */
+  shouldFire: (remaining: number, total: number) => boolean;
+  urgency: 'amber' | 'rose';
+}
+
+const WARNINGS: WarningConfig[] = [
+  {
+    key: 'half',
+    title: '⏳ Halfway Through Your Time',
+    message: "You've used half of your allotted time. Keep a steady pace!",
+    shouldFire: (remaining, total) => total > 120 && remaining <= Math.floor(total / 2),
+    urgency: 'amber',
+  },
+  {
+    key: 'fifteen',
+    title: '⚠️ 15 Minutes Remaining',
+    message: 'You have 15 minutes left. Start wrapping up any remaining questions.',
+    shouldFire: (remaining, total) => total > 900 && remaining <= 900,
+    urgency: 'amber',
+  },
+  {
+    key: 'five',
+    title: '🚨 5 Minutes Remaining!',
+    message: 'Only 5 minutes left! The exercise will auto-submit when the timer reaches zero.',
+    shouldFire: (remaining, _total) => remaining <= 300,
+    urgency: 'rose',
+  },
+];
 
 export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
   outlineId,
@@ -54,10 +99,17 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
   problems,
   sessionId,
   exerciseId,
-  initialIsTimed = true,
+  timerMode: timerModeProp,
+  countdownSeconds: countdownSecondsProp = 0,
+  initialIsTimed,
 }) => {
   const router = useRouter();
   const { toast } = useToast();
+
+  // Resolve timer mode — handle legacy initialIsTimed prop
+  const resolvedTimerMode: TimerMode =
+    timerModeProp ?? (initialIsTimed ? 'stopwatch' : 'none');
+  const totalCountdownSeconds = resolvedTimerMode === 'countdown' ? countdownSecondsProp : 0;
 
   const breadcrumbs = buildBreadcrumbs({
     project: { name: projectTitle, slug },
@@ -67,11 +119,18 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
   });
 
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [seconds, setSeconds] = useState(0);
-  const [isActive, setIsActive] = useState(true);
-  const [isTimed, setIsTimed] = useState(initialIsTimed);
 
-  // Store user's selected choice per question index: { 0: "Option text", 1: "Option text" }
+  // `seconds` meaning:
+  //   - stopwatch: elapsed time (counts up from 0)
+  //   - countdown: remaining time (counts down from totalCountdownSeconds)
+  //   - none: always 0 (not displayed)
+  const [seconds, setSeconds] = useState(
+    resolvedTimerMode === 'countdown' ? totalCountdownSeconds : 0
+  );
+  const [isActive, setIsActive] = useState(true);
+  const timerMode = resolvedTimerMode;
+
+  // Store user's selected choice per question index
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
   const [userNotes, setUserNotes] = useState<Record<number, string>>({});
 
@@ -82,20 +141,66 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showNavModal, setShowNavModal] = useState(false);
 
+  // Warning system
+  const [firedWarnings, setFiredWarnings] = useState<Set<WarningKey>>(new Set());
+  const [activeWarning, setActiveWarning] = useState<WarningConfig | null>(null);
+
+  // Time's Up modal (auto-submit)
+  const [showTimesUpModal, setShowTimesUpModal] = useState(false);
+
+  // Use a ref to allow handleFinalSubmit to read `seconds` without stale closure issues
+  const secondsRef = useRef(seconds);
+  useEffect(() => { secondsRef.current = seconds; }, [seconds]);
+
+  const selectedAnswersRef = useRef(selectedAnswers);
+  useEffect(() => { selectedAnswersRef.current = selectedAnswers; }, [selectedAnswers]);
+
+  const isSubmittingRef = useRef(isSubmitting);
+  useEffect(() => { isSubmittingRef.current = isSubmitting; }, [isSubmitting]);
+
   const currentProb = problems[currentIndex];
 
-  // Stopwatch timer interval
+  // ── Timer interval ────────────────────────────────────────────────────────────
   useEffect(() => {
-    let interval: any = null;
-    if (isTimed && isActive && currentProb) {
-      interval = setInterval(() => {
-        setSeconds((prev) => prev + 1);
-      }, 1000);
-    } else {
-      clearInterval(interval);
-    }
+    if (timerMode === 'none' || !isActive || !currentProb) return;
+
+    const interval = setInterval(() => {
+      setSeconds((prev) => {
+        if (timerMode === 'countdown') {
+          const next = prev - 1;
+
+          // Check warning thresholds (deferred to avoid setState-in-setState)
+          setTimeout(() => {
+            setFiredWarnings((fired) => {
+              const newFired = new Set(fired);
+              for (const w of WARNINGS) {
+                if (!fired.has(w.key) && w.shouldFire(next, totalCountdownSeconds)) {
+                  newFired.add(w.key);
+                  if (next > 0) {
+                    // Show warning modal for non-zero remaining time
+                    setActiveWarning(w);
+                  }
+                }
+              }
+              return newFired;
+            });
+
+            // Auto-submit at 0
+            if (next <= 0 && !isSubmittingRef.current) {
+              setShowTimesUpModal(true);
+            }
+          }, 0);
+
+          return Math.max(0, next);
+        } else {
+          // stopwatch
+          return prev + 1;
+        }
+      });
+    }, 1000);
+
     return () => clearInterval(interval);
-  }, [isTimed, isActive, currentProb]);
+  }, [timerMode, isActive, currentProb, totalCountdownSeconds]);
 
   if (!currentProb || problems.length === 0) {
     return (
@@ -135,20 +240,28 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
 
   const handleNextQuestion = () => {
     if (currentIndex < problems.length - 1) {
-      setCurrentIndex((prev) => prev - 1 + 1 + 1 - 1 + 1);
+      setCurrentIndex((prev) => prev + 1);
     }
   };
 
   // Evaluate accuracy and finish session attempt
-  const handleFinalSubmit = async () => {
+  const handleFinalSubmit = async (overrideAnswers?: Record<number, string>) => {
     // ── 1. Freeze the timer and lock in the elapsed time immediately ──────────
     setIsActive(false);
-    const finalSeconds = seconds; // snapshot before any await
     setIsSubmitting(true);
+
+    // For stopwatch: finalSeconds = elapsed. For countdown: elapsed = total - remaining
+    const snapshotSeconds = secondsRef.current;
+    const finalSeconds =
+      timerMode === 'countdown'
+        ? totalCountdownSeconds - snapshotSeconds
+        : snapshotSeconds;
+
+    const answersToGrade = overrideAnswers ?? selectedAnswersRef.current;
 
     // ── 2. Grade everything locally — pure JS, no network ────────────────────
     const gradedProblems = problems.map((prob, i) => {
-      const selected = selectedAnswers[i] || null;
+      const selected = answersToGrade[i] || null;
 
       let parsedOpts: string[] = [];
       if (prob.problem_type === 'multiple_choice' && prob.options_json) {
@@ -181,24 +294,22 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
 
     // ── 3. Fire ALL DB work in the background — nothing blocks navigation ─────
     if (!activeSessionId) {
-      // Rare path: no pre-created session (lobby always creates one, but be safe)
-      startExerciseSessionAction(targetExId, outlineId, isTimed)
+      startExerciseSessionAction(targetExId, outlineId, timerMode !== 'none')
         .then((res) => {
           if (res?.sessionId) {
             finishExerciseSessionAction(res.sessionId, correctCount, totalCount, finalSeconds).catch(console.error);
           }
         })
         .catch(console.error);
-      // Can't navigate to a proper review URL without an ID, so fall back
       setIsSubmitting(false);
       setShowLeaveModal(false);
+      setShowTimesUpModal(false);
       toast('Exercise Submitted!', `Finished with ${correctCount}/${totalCount} correct answers.`, 'success');
       router.push(`/projects/${slug}?sub=${outlineId}`);
       return;
     }
 
     // Normal path: sessionId already exists from lobby
-    // Fire everything as background tasks — do NOT await
     finishExerciseSessionAction(activeSessionId, correctCount, totalCount, finalSeconds).catch(console.error);
     Promise.all(
       gradedProblems.map(({ prob, selected, isMcqCorrect }) =>
@@ -215,18 +326,19 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
     // ── 4. Navigate immediately — all score data travels in URL params ────────
     setIsSubmitting(false);
     setShowLeaveModal(false);
+    setShowTimesUpModal(false);
     toast('Exercise Submitted!', `Finished with ${correctCount}/${totalCount} correct answers.`, 'success');
 
-    const encodedAnswers = btoa(encodeURIComponent(JSON.stringify(selectedAnswers)));
-    const params = new URLSearchParams({
+    const encodedAnswers = btoa(encodeURIComponent(JSON.stringify(answersToGrade)));
+    const reviewParams = new URLSearchParams({
       answers: encodedAnswers,
       score: String(scorePct),
       correct: String(correctCount),
       total: String(totalCount),
       dur: String(finalSeconds),
-      timed: isTimed ? '1' : '0',
+      timed: timerMode !== 'none' ? '1' : '0',
     });
-    router.push(`/projects/${slug}/outlines/${outlineId}/exercise/${targetExId}/review/${activeSessionId}?${params.toString()}`);
+    router.push(`/projects/${slug}/outlines/${outlineId}/exercise/${targetExId}/review/${activeSessionId}?${reviewParams.toString()}`);
   };
 
   const handleAbandonExercise = () => {
@@ -243,6 +355,10 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
   const currentSelected = selectedAnswers[currentIndex] || null;
   const answeredCount = Object.keys(selectedAnswers).length;
   const flaggedCount = Object.values(flaggedQuestions).filter(Boolean).length;
+
+  // Determine if countdown is critically low (≤5 min)
+  const isCountdownCritical = timerMode === 'countdown' && seconds <= 300 && seconds > 0;
+  const isCountdownWarning = timerMode === 'countdown' && seconds <= 900 && seconds > 300;
 
   const getSquareButtonStyle = (pIdx: number) => {
     const isCurrent = pIdx === currentIndex;
@@ -285,9 +401,10 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
           </div>
         </div>
 
-        {/* Stopwatch & Question Count & Navigation Indicator */}
+        {/* Timer Display & Question Count & Navigation Indicator */}
         <div className="flex items-center gap-2.5">
-          {isTimed && (
+          {/* Stopwatch display */}
+          {timerMode === 'stopwatch' && (
             <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-violet-50 dark:bg-violet-950/60 border border-violet-200/60 dark:border-violet-800 text-violet-700 dark:text-violet-300 font-mono text-xs font-bold">
               <Clock className="w-3.5 h-3.5 text-violet-600 animate-pulse" />
               <span>{formatSecondsToHHMMSS(seconds)}</span>
@@ -299,6 +416,38 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
               >
                 {isActive ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
               </button>
+            </div>
+          )}
+
+          {/* Countdown display */}
+          {timerMode === 'countdown' && (
+            <div className={`flex items-center gap-2 px-3.5 py-1.5 rounded-2xl font-mono text-xs font-bold border transition-all ${
+              isCountdownCritical
+                ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300'
+                : isCountdownWarning
+                ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-300 dark:border-amber-800 text-amber-700 dark:text-amber-300'
+                : 'bg-slate-50 dark:bg-slate-800/60 border-slate-200/60 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+            }`}>
+              <AlarmClock className={`w-3.5 h-3.5 ${
+                isCountdownCritical ? 'text-rose-600 animate-pulse' : isCountdownWarning ? 'text-amber-500' : 'text-slate-500'
+              }`} />
+              <span>{formatSecondsToHHMMSS(seconds)}</span>
+              <button
+                type="button"
+                onClick={() => setIsActive(!isActive)}
+                className={`ml-1 ${isCountdownCritical ? 'text-rose-500 hover:text-rose-700' : 'text-slate-400 hover:text-slate-600'}`}
+                title={isActive ? 'Pause countdown' : 'Resume countdown'}
+              >
+                {isActive ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+              </button>
+            </div>
+          )}
+
+          {/* No timer badge */}
+          {timerMode === 'none' && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 font-mono text-xs">
+              <TimerOff className="w-3.5 h-3.5" />
+              <span>No Timer</span>
             </div>
           )}
 
@@ -439,7 +588,7 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
             ) : (
               <button
                 type="button"
-                onClick={handleFinalSubmit}
+                onClick={() => handleFinalSubmit()}
                 disabled={isSubmitting}
                 className="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold flex items-center gap-2 transition-all shadow-lg shadow-violet-600/30 disabled:opacity-50 m3-ripple"
               >
@@ -451,7 +600,7 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
         </div>
       </div>
 
-      {/* Question Navigation Modal Grid Popup */}
+      {/* ── Question Navigation Modal Grid Popup ─────────────────────────────── */}
       {showNavModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-4 animate-in fade-in duration-150">
           <div className="w-full max-w-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl space-y-5 max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-150">
@@ -509,9 +658,7 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
                         setCurrentIndex(pIdx);
                         setShowNavModal(false);
                       }}
-                      className={`h-10 rounded-xl flex items-center justify-center gap-1 transition-all relative ${getSquareButtonStyle(
-                        pIdx
-                      )}`}
+                      className={`h-10 rounded-xl flex items-center justify-center gap-1 transition-all relative ${getSquareButtonStyle(pIdx)}`}
                       title={`Go to Question ${pIdx + 1}${isFlagged ? ' (Flagged)' : ''}${isAnswered ? ' (Answered)' : ''}`}
                     >
                       <span>Q{pIdx + 1}</span>
@@ -539,7 +686,7 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
         </div>
       )}
 
-      {/* Confirm Leave Modal */}
+      {/* ── Confirm Leave Modal ───────────────────────────────────────────────── */}
       {showLeaveModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-4 animate-in fade-in duration-150">
           <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6 animate-in zoom-in-95 duration-150">
@@ -560,7 +707,7 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
             <div className="space-y-2.5">
               <button
                 type="button"
-                onClick={handleFinalSubmit}
+                onClick={() => handleFinalSubmit()}
                 disabled={isSubmitting}
                 className="w-full py-3 px-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-indigo-600/30 transition-all disabled:opacity-50"
               >
@@ -587,7 +734,91 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
           </div>
         </div>
       )}
+
+      {/* ── Mid-session Warning Modal (50% / 15min / 5min) ───────────────────── */}
+      {activeWarning && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className={`w-full max-w-sm border rounded-3xl p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150 ${
+            activeWarning.urgency === 'rose'
+              ? 'bg-rose-50 dark:bg-rose-950 border-rose-300 dark:border-rose-700'
+              : 'bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-700'
+          }`}>
+            <div className="flex items-center gap-3">
+              <div className={`p-2.5 rounded-2xl ${
+                activeWarning.urgency === 'rose'
+                  ? 'bg-rose-100 dark:bg-rose-900'
+                  : 'bg-amber-100 dark:bg-amber-900'
+              }`}>
+                <AlertTriangle className={`w-5 h-5 ${
+                  activeWarning.urgency === 'rose' ? 'text-rose-600' : 'text-amber-600'
+                }`} />
+              </div>
+              <h3 className={`text-sm font-black ${
+                activeWarning.urgency === 'rose'
+                  ? 'text-rose-900 dark:text-rose-100'
+                  : 'text-amber-900 dark:text-amber-100'
+              }`}>
+                {activeWarning.title}
+              </h3>
+            </div>
+
+            <p className={`text-xs leading-relaxed ${
+              activeWarning.urgency === 'rose'
+                ? 'text-rose-800 dark:text-rose-200'
+                : 'text-amber-800 dark:text-amber-200'
+            }`}>
+              {activeWarning.message}
+            </p>
+
+            {timerMode === 'countdown' && (
+              <div className={`font-mono text-2xl font-black text-center py-2 ${
+                activeWarning.urgency === 'rose' ? 'text-rose-700 dark:text-rose-300' : 'text-amber-700 dark:text-amber-300'
+              }`}>
+                {formatSecondsToHHMMSS(seconds)}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setActiveWarning(null)}
+              className={`w-full py-3 rounded-2xl font-bold text-xs transition-all ${
+                activeWarning.urgency === 'rose'
+                  ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-600/30'
+                  : 'bg-amber-600 hover:bg-amber-500 text-white shadow-md shadow-amber-600/30'
+              }`}
+            >
+              Got it — Continue
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Time's Up Modal (auto-submit) ─────────────────────────────────────── */}
+      {showTimesUpModal && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-sm bg-white dark:bg-slate-900 border-2 border-rose-400 dark:border-rose-700 rounded-3xl p-7 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150 text-center">
+            <div className="flex flex-col items-center gap-3">
+              <div className="p-4 rounded-full bg-rose-100 dark:bg-rose-950">
+                <AlarmClock className="w-8 h-8 text-rose-600 animate-pulse" />
+              </div>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white">Time&rsquo;s Up!</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-xs">
+                Your countdown timer has expired. The exercise will now be auto-submitted with your current answers.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => handleFinalSubmit()}
+              disabled={isSubmitting}
+              className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-500 hover:to-rose-400 text-white font-black text-sm flex items-center justify-center gap-2.5 shadow-lg shadow-rose-600/30 disabled:opacity-50 transition-all"
+            >
+              {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Award className="w-5 h-5" />}
+              <span>{isSubmitting ? 'Submitting…' : 'View Results'}</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
-
