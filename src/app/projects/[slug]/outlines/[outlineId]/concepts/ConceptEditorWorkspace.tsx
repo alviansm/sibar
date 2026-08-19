@@ -4,9 +4,11 @@ import React, { useState } from 'react';
 import { saveConceptsListAction } from '@/app/actions/projects';
 import { useToast } from '@/components/Toast';
 import { MathRenderer } from '@/components/MathRenderer';
+import { RichContentToolbar, handleClipboardImagePaste } from '@/components/RichContentToolbar';
 import { LottieEmptyState } from '@/components/LottieEmptyState';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { cryptoNativeUUID } from '@/lib/utils';
+import { DriveAttachmentUploader } from '@/components/DriveAttachmentUploader';
 import {
   Save,
   Eye,
@@ -182,15 +184,42 @@ export const ConceptEditorWorkspace: React.FC<ConceptEditorWorkspaceProps> = ({
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               <div className="space-y-2">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Concept Theory & Formulas (LaTeX Markdown $...$ or $$...$$)
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    Concept Theory, Plots, Diagrams & Formulas
+                  </label>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <RichContentToolbar
+                    onInsert={(snippet) => setContent((prev) => prev + snippet)}
+                  />
+                  <DriveAttachmentUploader
+                    entityType="concept"
+                    entityId={editingItem?.id || outlineId}
+                    projectSlug={slug}
+                    buttonLabel="Drive Attach"
+                    onUploadSuccess={(att) => {
+                      if (att.mime_type.startsWith('image/')) {
+                        setContent((prev) => prev + `\n![${att.file_name}](${att.web_view_link})\n`);
+                      } else {
+                        setContent((prev) => prev + `\n[📄 ${att.file_name}](${att.web_view_link})\n`);
+                      }
+                    }}
+                  />
+                </div>
                 <textarea
                   rows={8}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
+                  onPaste={(e) =>
+                    handleClipboardImagePaste(
+                      e,
+                      (snippet) => setContent((prev) => prev + snippet),
+                      toast
+                    )
+                  }
                   required
-                  placeholder="e.g. Definition of Absolute Value:\n$$|x| = \\begin{cases} x & x \\ge 0 \\\\ -x & x < 0 \\end{cases}$$"
+                  placeholder="e.g. Definition of Absolute Value:\n$$|x| = \begin{cases} x & x \ge 0 \\ -x & x < 0 \end{cases}\n\n```plot\nfn: abs(x)\nrange: [-5, 5]\n```"
                   className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-mono focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -198,13 +227,13 @@ export const ConceptEditorWorkspace: React.FC<ConceptEditorWorkspaceProps> = ({
               <div className="space-y-2">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
                   <Eye className="w-3.5 h-3.5" />
-                  <span>Live KaTeX Math Preview</span>
+                  <span>Live Rich Content Preview</span>
                 </label>
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 min-h-[160px] sm:min-h-[210px] text-xs leading-relaxed text-slate-800 dark:text-slate-200 overflow-x-auto">
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 min-h-[210px] text-xs leading-relaxed text-slate-800 dark:text-slate-200 overflow-y-auto max-h-[500px]">
                   {content ? (
                     <MathRenderer content={content} />
                   ) : (
-                    <span className="text-slate-400 italic">Live math formulas will render here in real-time...</span>
+                    <span className="text-slate-400 italic">Live math formulas, function plots, diagrams, and images will render here in real-time...</span>
                   )}
                 </div>
               </div>

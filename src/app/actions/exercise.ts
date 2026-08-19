@@ -147,30 +147,172 @@ export async function saveSessionProgressAction(
   }
 }
 
+export async function abandonExerciseSessionAction(sessionId: string) {
+  try {
+    db.update(exercise_session_attempts)
+      .set({ is_deleted: 1 })
+      .where(eq(exercise_session_attempts.id, sessionId))
+      .run();
+    revalidatePath('/projects/[slug]', 'layout');
+    return { success: true };
+  } catch (error: any) {
+    return { error: error.message || 'Failed to abandon exercise session.' };
+  }
+}
+
+export async function checkAndFinalizeExpiredSession(sessionAttempt: typeof exercise_session_attempts.$inferSelect) {
+  if (
+    !sessionAttempt ||
+    sessionAttempt.finished_at !== null ||
+    sessionAttempt.timer_mode !== 'countdown' ||
+    !sessionAttempt.countdown_seconds
+  ) {
+    return { isExpired: false, session: sessionAttempt };
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  const expirationTime = sessionAttempt.started_at + sessionAttempt.countdown_seconds;
+
+  if (now < expirationTime) {
+    return { isExpired: false, session: sessionAttempt };
+  }
+
+  // Session has expired! Auto-finalize and grade
+  try {
+    // 1. Fetch problems for this exercise / outline
+    let exerciseProblems = db
+      .select()
+      .from(problems)
+      .where(
+        and(
+          eq(problems.outline_id, sessionAttempt.outline_id),
+          eq(problems.exercise_id, sessionAttempt.exercise_id),
+          eq(problems.is_deleted, 0)
+        )
+      )
+      .all();
+
+    if (exerciseProblems.length === 0) {
+      exerciseProblems = db
+        .select()
+        .from(problems)
+        .where(
+          and(
+            eq(problems.outline_id, sessionAttempt.outline_id),
+            eq(problems.is_deleted, 0)
+          )
+        )
+        .all();
+    }
+
+    // 2. Parse saved answers
+    let answersMap: Record<number, string> = {};
+    if (sessionAttempt.answers_json) {
+      try {
+        answersMap = JSON.parse(sessionAttempt.answers_json);
+      } catch (e) {}
+    }
+
+    // 3. Grade MCQ questions
+    let correctCount = 0;
+    const totalCount = exerciseProblems.length;
+
+    exerciseProblems.forEach((prob, i) => {
+      const selected = answersMap[i];
+      let isMcqCorrect = false;
+      if (prob.problem_type === 'multiple_choice' && selected) {
+        let parsedOpts: string[] = [];
+        if (prob.options_json) {
+          try { parsedOpts = JSON.parse(prob.options_json); } catch (e) {}
+        }
+        let correctIndices: number[] = [];
+        if (prob.correct_option_indices) {
+          try { correctIndices = JSON.parse(prob.correct_option_indices); } catch (e) {}
+        } else if (typeof prob.correct_option_index === 'number') {
+          correctIndices = [prob.correct_option_index];
+        }
+        const chosenIndex = parsedOpts.indexOf(selected);
+        if (correctIndices.length > 0 && chosenIndex !== -1) {
+          isMcqCorrect = correctIndices.includes(chosenIndex);
+        }
+      }
+      if (isMcqCorrect) {
+        correctCount++;
+      }
+    });
+
+    // 4. Determine passing grade
+    const exSet = db
+      .select()
+      .from(exercise_sets)
+      .where(and(eq(exercise_sets.id, sessionAttempt.exercise_id), eq(exercise_sets.is_deleted, 0)))
+      .get();
+    const passingGrade = exSet?.passing_grade ?? 70;
+    const scorePct = totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : 0;
+    const isPassed = scorePct >= passingGrade ? 1 : 0;
+    const finalDuration = sessionAttempt.countdown_seconds;
+
+    // 5. Update session attempt
+    db.update(exercise_session_attempts)
+      .set({
+        finished_at: expirationTime,
+        duration_seconds: finalDuration,
+        total_questions: totalCount,
+        correct_answers: correctCount,
+        score_percentage: scorePct,
+        is_passed: isPassed,
+        last_saved_at: now,
+      })
+      .where(eq(exercise_session_attempts.id, sessionAttempt.id))
+      .run();
+
+    const finalizedSession = {
+      ...sessionAttempt,
+      finished_at: expirationTime,
+      duration_seconds: finalDuration,
+      total_questions: totalCount,
+      correct_answers: correctCount,
+      score_percentage: scorePct,
+      is_passed: isPassed,
+      last_saved_at: now,
+    };
+
+    return { isExpired: true, session: finalizedSession };
+  } catch (error) {
+    console.error('Error auto-finalizing expired session:', error);
+    return { isExpired: false, session: sessionAttempt };
+  }
+}
+
 export async function finishExerciseSessionAction(
   sessionId: string,
   correctAnswers: number,
   totalQuestions: number,
   durationSeconds: number,
-  passingGrade: number = 70
+  passingGrade: number = 70,
+  answersJson?: string
 ) {
   try {
     const now = Math.floor(Date.now() / 1000);
     const scorePct = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
     const isPassed = scorePct >= passingGrade ? 1 : 0;
 
+    const updateData: any = {
+      finished_at: now,
+      duration_seconds: durationSeconds,
+      total_questions: totalQuestions,
+      correct_answers: correctAnswers,
+      score_percentage: scorePct,
+      is_passed: isPassed,
+      last_saved_at: now,
+    };
+
+    if (answersJson !== undefined) {
+      updateData.answers_json = answersJson;
+    }
+
     db.update(exercise_session_attempts)
-      .set({
-        finished_at: now,
-        duration_seconds: durationSeconds,
-        total_questions: totalQuestions,
-        correct_answers: correctAnswers,
-        score_percentage: scorePct,
-        is_passed: isPassed,
-        // Clear saved draft answers on finish
-        answers_json: null,
-        last_saved_at: null,
-      })
+      .set(updateData)
       .where(eq(exercise_session_attempts.id, sessionId))
       .run();
 

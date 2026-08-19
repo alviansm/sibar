@@ -3,9 +3,11 @@ import { db } from '@/db';
 import { outlines, projects, problems, exercise_sets, exercise_session_attempts } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
 import { getCurrentUser } from '@/lib/auth';
 import { notFound } from 'next/navigation';
 import { ExerciseLobbyWorkspace, type InProgressSession } from './ExerciseLobbyWorkspace';
+import { checkAndFinalizeExpiredSession } from '@/app/actions/exercise';
 
 export const revalidate = 0;
 
@@ -94,7 +96,7 @@ export default async function ExerciseLobbyPage(props: ExerciseLobbyPageProps) {
   const otherCount = exerciseProblems.length - mcqCount - essayCount;
 
   // Fetch previous session attempts (most recent first)
-  const previousAttempts = db
+  let previousAttempts = db
     .select()
     .from(exercise_session_attempts)
     .where(
@@ -106,6 +108,37 @@ export default async function ExerciseLobbyPage(props: ExerciseLobbyPageProps) {
     .orderBy(desc(exercise_session_attempts.started_at))
     .all();
 
+  // Detect in-progress session: most recent attempt with no finished_at
+  let latestAttempt = previousAttempts[0] || null;
+  let inProgressSession: InProgressSession | null = null;
+
+  if (latestAttempt && latestAttempt.finished_at === null) {
+    const { isExpired, session: finalAttempt } = await checkAndFinalizeExpiredSession(latestAttempt);
+    if (isExpired && finalAttempt) {
+      latestAttempt = finalAttempt;
+      // Update in the list
+      previousAttempts[0] = finalAttempt;
+    } else {
+      // Count how many answers are saved
+      let answeredCount = 0;
+      if (latestAttempt.answers_json) {
+        try {
+          const parsed = JSON.parse(latestAttempt.answers_json);
+          answeredCount = Object.keys(parsed).length;
+        } catch (e) {}
+      }
+
+      inProgressSession = {
+        sessionId: latestAttempt.id,
+        startedAt: latestAttempt.started_at,
+        timerMode: (latestAttempt.timer_mode as 'none' | 'stopwatch' | 'countdown') || 'none',
+        countdownSeconds: latestAttempt.countdown_seconds || 0,
+        answersJson: latestAttempt.answers_json ?? null,
+        answeredCount,
+      };
+    }
+  }
+
   const attemptsCount = previousAttempts.length;
   const finishedAttempts = previousAttempts.filter((a) => a.finished_at !== null);
 
@@ -115,30 +148,6 @@ export default async function ExerciseLobbyPage(props: ExerciseLobbyPageProps) {
       : null;
 
   const hasPassed = finishedAttempts.some((a) => a.is_passed === 1);
-
-  // Detect in-progress session: most recent attempt with no finished_at
-  const latestAttempt = previousAttempts[0] || null;
-  let inProgressSession: InProgressSession | null = null;
-
-  if (latestAttempt && latestAttempt.finished_at === null) {
-    // Count how many answers are saved
-    let answeredCount = 0;
-    if (latestAttempt.answers_json) {
-      try {
-        const parsed = JSON.parse(latestAttempt.answers_json);
-        answeredCount = Object.keys(parsed).length;
-      } catch (e) {}
-    }
-
-    inProgressSession = {
-      sessionId: latestAttempt.id,
-      startedAt: latestAttempt.started_at,
-      timerMode: (latestAttempt.timer_mode as 'none' | 'stopwatch' | 'countdown') || 'none',
-      countdownSeconds: latestAttempt.countdown_seconds || 0,
-      answersJson: latestAttempt.answers_json ?? null,
-      answeredCount,
-    };
-  }
 
   // Last *finished* attempt for review link
   const lastFinishedAttempt = finishedAttempts[0] || null;
@@ -177,6 +186,7 @@ export default async function ExerciseLobbyPage(props: ExerciseLobbyPageProps) {
           inProgressSession={inProgressSession}
         />
       </main>
+      <Footer />
     </div>
   );
 }

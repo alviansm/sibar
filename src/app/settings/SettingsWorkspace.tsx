@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
-import { User, ShieldCheck, UserCog, KeyRound, ChevronRight, Quote } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, ShieldCheck, UserCog, KeyRound, ChevronRight, Quote, HardDrive } from 'lucide-react';
 import { ProfileSettingsForm } from './ProfileSettingsForm';
 import { SecuritySettingsForm } from './SecuritySettingsForm';
 import { QuoteSettingsForm } from './QuoteSettingsForm';
+import { GoogleDriveSettings } from './GoogleDriveSettings';
+import { useSearchParams } from 'next/navigation';
 
 interface SettingsWorkspaceProps {
   user: {
@@ -15,10 +17,11 @@ interface SettingsWorkspaceProps {
     quoteCategory?: string | null;
     createdAt?: number;
   };
+  googleAccounts?: any[];
 }
 
-export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({ user }) => {
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'quotes'>('profile');
+export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({ user, googleAccounts = [] }) => {
+  const [activeTab, setActiveTab] = useState<'profile' | 'quotes' | 'security'>('profile');
 
   return (
     <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-start">
@@ -41,7 +44,7 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({ user }) =>
           >
             <div className="flex items-center gap-2 sm:gap-2.5">
               <UserCog className="w-4 h-4 flex-shrink-0" />
-              <span>Profile</span>
+              <span>Profile Settings</span>
             </div>
             <ChevronRight className={`w-3.5 h-3.5 opacity-60 hidden md:block ${activeTab === 'profile' ? 'text-white' : ''}`} />
           </button>
@@ -56,7 +59,7 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({ user }) =>
           >
             <div className="flex items-center gap-2 sm:gap-2.5">
               <Quote className="w-4 h-4 flex-shrink-0" />
-              <span>Quotes</span>
+              <span>Motivational Quote</span>
             </div>
             <ChevronRight className={`w-3.5 h-3.5 opacity-60 hidden md:block ${activeTab === 'quotes' ? 'text-white' : ''}`} />
           </button>
@@ -71,7 +74,7 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({ user }) =>
           >
             <div className="flex items-center gap-2 sm:gap-2.5">
               <KeyRound className="w-4 h-4 flex-shrink-0" />
-              <span>Security</span>
+              <span>Security &amp; Password</span>
             </div>
             <ChevronRight className={`w-3.5 h-3.5 opacity-60 hidden md:block ${activeTab === 'security' ? 'text-white' : ''}`} />
           </button>
@@ -104,14 +107,14 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({ user }) =>
             )}
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            {activeTab === 'profile' && 'Manage your public persona, display name, and cognitive telemetry preferences.'}
+            {activeTab === 'profile' && 'Manage your public persona, display name, cognitive telemetry preferences, and Google Drive storage.'}
             {activeTab === 'quotes' && 'Configure API Ninjas quotes, refresh interval (hourly/daily/always), and 50 local quotes fallback.'}
             {activeTab === 'security' && 'Update your login password and protect your cognitive training archive.'}
           </p>
         </div>
 
         {/* Tab Content Form */}
-        {activeTab === 'profile' && <ProfileSettingsForm user={user} />}
+        {activeTab === 'profile' && <ProfileSettingsForm user={user} googleAccounts={googleAccounts} />}
         {activeTab === 'quotes' && <QuoteSettingsForm user={user} />}
         {activeTab === 'security' && <SecuritySettingsForm />}
 
@@ -120,4 +123,5 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({ user }) =>
     </div>
   );
 };
+
 

@@ -3,7 +3,8 @@
 import React, { useState, useTransition } from 'react';
 import { updateProfileNameAction } from '@/app/actions/user';
 import { useToast } from '@/components/Toast';
-import { User, Check, Loader2, Calendar, ShieldCheck, BadgeCheck } from 'lucide-react';
+import { User, Check, Loader2, Calendar, ShieldCheck, BadgeCheck, HardDrive } from 'lucide-react';
+import { GoogleDriveSettings } from './GoogleDriveSettings';
 
 interface ProfileSettingsFormProps {
   user: {
@@ -12,9 +13,10 @@ interface ProfileSettingsFormProps {
     fullName?: string | null;
     createdAt?: number;
   };
+  googleAccounts?: any[];
 }
 
-export const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({ user }) => {
+export const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({ user, googleAccounts = [] }) => {
   const [fullName, setFullName] = useState(user.fullName || '');
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
@@ -166,6 +168,11 @@ export const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({ user }
           </button>
         </div>
       </form>
+
+      {/* Connected Google Account & Drive Storage Section */}
+      <div className="pt-8 border-t border-slate-200 dark:border-slate-800">
+        <GoogleDriveSettings initialAccounts={googleAccounts} />
+      </div>
     </div>
   );
 };

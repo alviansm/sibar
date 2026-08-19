@@ -3,6 +3,7 @@ import { db } from '@/db';
 import { outlines, projects, problems } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
 import { getCurrentUser } from '@/lib/auth';
 import { notFound } from 'next/navigation';
 import { ExampleManagerWorkspace } from './ExampleManagerWorkspace';
@@ -63,6 +64,7 @@ export default async function ExamplesPage(props: ExamplesPageProps) {
           initialExamples={exampleProblems}
         />
       </main>
+      <Footer />
     </div>
   );
 }

@@ -127,3 +127,32 @@ export const exercise_session_attempts = sqliteTable('exercise_session_attempts'
   is_deleted: integer('is_deleted').notNull().default(0),
   created_at: integer('created_at').notNull(),
 });
+
+export const google_accounts = sqliteTable('google_accounts', {
+  id: text('id').primaryKey(),
+  user_id: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  email: text('email').notNull(),
+  account_name: text('account_name'),
+  avatar_url: text('avatar_url'),
+  refresh_token: text('refresh_token').notNull(),
+  root_folder_id: text('root_folder_id'),
+  is_default: integer('is_default').notNull().default(0),
+  created_at: integer('created_at').notNull(),
+});
+
+export const attachments = sqliteTable('attachments', {
+  id: text('id').primaryKey(),
+  google_account_id: text('google_account_id').references(() => google_accounts.id, { onDelete: 'set null' }),
+  file_name: text('file_name').notNull(),
+  file_size: integer('file_size').notNull(),
+  mime_type: text('mime_type').notNull(),
+  drive_file_id: text('drive_file_id').notNull(),
+  web_view_link: text('web_view_link').notNull(),
+  thumbnail_link: text('thumbnail_link'),
+  entity_type: text('entity_type', { enum: ['concept', 'problem', 'exercise_set', 'attempt'] }).notNull(),
+  entity_id: text('entity_id').notNull(),
+  created_at: integer('created_at').notNull(),
+});
+

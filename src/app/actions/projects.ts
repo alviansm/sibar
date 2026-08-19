@@ -335,6 +335,8 @@ export async function toggleConceptStatusAction(outlineId: string, conceptId: st
     const proj = db.select().from(projects).where(eq(projects.id, node.project_id)).get();
     if (proj) {
       revalidatePath(`/projects/${proj.slug}`);
+      revalidatePath(`/projects/${proj.slug}/outlines/${outlineId}/concepts`);
+      revalidatePath(`/projects/${proj.slug}/outlines/${outlineId}/concepts/${conceptId}`);
     }
 
     return { success: true, newStatus: updatedStatus };

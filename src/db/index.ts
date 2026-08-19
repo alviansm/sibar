@@ -191,6 +191,33 @@ function ensureTablesExist() {
       is_deleted INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS google_accounts (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      email TEXT NOT NULL,
+      account_name TEXT,
+      avatar_url TEXT,
+      refresh_token TEXT NOT NULL,
+      root_folder_id TEXT,
+      is_default INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS attachments (
+      id TEXT PRIMARY KEY,
+      google_account_id TEXT REFERENCES google_accounts(id) ON DELETE SET NULL,
+      file_name TEXT NOT NULL,
+      file_size INTEGER NOT NULL,
+      mime_type TEXT NOT NULL,
+      drive_file_id TEXT NOT NULL,
+      web_view_link TEXT NOT NULL,
+      thumbnail_link TEXT,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_attachments_entity ON attachments(entity_type, entity_id);
   `);
 
   // Ensure default admin-sibar user exists & credentials are updated

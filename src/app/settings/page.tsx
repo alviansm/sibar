@@ -2,9 +2,13 @@ import React from 'react';
 import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { Navbar } from '@/components/Navbar';
+import { Footer } from '@/components/Footer';
 import { SettingsWorkspace } from './SettingsWorkspace';
 import Link from 'next/link';
 import { ArrowLeft, UserCog } from 'lucide-react';
+import { db } from '@/db';
+import { google_accounts } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 
 export const revalidate = 0;
 
@@ -14,6 +18,19 @@ export default async function DedicatedSettingsPage() {
   if (!user) {
     redirect('/login');
   }
+
+  const accounts = db
+    .select({
+      id: google_accounts.id,
+      email: google_accounts.email,
+      account_name: google_accounts.account_name,
+      avatar_url: google_accounts.avatar_url,
+      is_default: google_accounts.is_default,
+      created_at: google_accounts.created_at,
+    })
+    .from(google_accounts)
+    .where(eq(google_accounts.user_id, user.id))
+    .all();
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col text-slate-900 dark:text-slate-100">
@@ -43,9 +60,11 @@ export default async function DedicatedSettingsPage() {
         </div>
 
         {/* Settings Sidebar + Workspace */}
-        <SettingsWorkspace user={user} />
+        <SettingsWorkspace user={user} googleAccounts={accounts} />
 
       </div>
+      <Footer />
     </div>
   );
 }
+

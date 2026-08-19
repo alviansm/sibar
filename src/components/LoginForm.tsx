@@ -4,6 +4,7 @@ import React, { useActionState } from 'react';
 import { loginAction, getCaptchaAction } from '@/app/actions/auth';
 import { BrainCircuit, KeyRound, User, Sparkles, ArrowRight, ShieldCheck, Lock } from 'lucide-react';
 import { CaptchaField, CaptchaData } from '@/components/CaptchaField';
+import { Footer } from '@/components/Footer';
 
 interface LoginFormProps {
   initialCaptcha: CaptchaData;
@@ -13,12 +14,13 @@ export function LoginForm({ initialCaptcha }: LoginFormProps) {
   const [state, formAction, isPending] = useActionState(loginAction, null);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between relative overflow-hidden">
       {/* Background ambient lighting */}
       <div className="absolute -top-40 -left-40 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-sky-500/20 rounded-full blur-3xl pointer-events-none"></div>
 
-      <div className="w-full max-w-md relative z-10">
+      <div className="flex-1 flex items-center justify-center p-4 py-12 relative z-10">
+        <div className="w-full max-w-md">
         
         {/* Logo & Headline */}
         <div className="text-center mb-8">
@@ -110,6 +112,8 @@ export function LoginForm({ initialCaptcha }: LoginFormProps) {
           </div>
         </div>
       </div>
+      </div>
+      <Footer />
     </div>
   );
 }

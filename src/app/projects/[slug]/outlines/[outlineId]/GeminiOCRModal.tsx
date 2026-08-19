@@ -275,16 +275,21 @@ export const GeminiOCRModal: React.FC<GeminiOCRModalProps> = ({ onBulkImport, la
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                    <span>Custom AI Prompt / Instructions (Optional)</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                      <span>Custom AI Prompt / Instructions (Optional)</span>
+                    </label>
+                    <span className="text-[10px] font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded-full border border-indigo-200/50 dark:border-indigo-800/40">
+                      ⚡ Graph &amp; Plot Auto-Detection Enabled
+                    </span>
+                  </div>
                   <textarea
                     rows={2}
                     value={userInstructions}
                     onChange={(e) => setUserInstructions(e.target.value)}
                     disabled={loading}
-                    placeholder='e.g. "Pick 20 most important questions", "5 hardest problems with tricky distractors", or "Make variant questions based on these pages"'
+                    placeholder='e.g. "Include Cartesian plots for parabola/curve problems", "Pick 15 most important questions", or "Generate variant questions based on these pages"'
                     className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 resize-none"
                   />
                 </div>

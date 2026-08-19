@@ -27,6 +27,7 @@ import {
   RotateCcw,
   RotateCw,
   AlarmClock,
+  ArrowRight,
 } from 'lucide-react';
 import { MathRenderer } from '@/components/MathRenderer';
 import { LottieEmptyState } from '@/components/LottieEmptyState';
@@ -118,7 +119,7 @@ export const SubchapterModulesGrid: React.FC<SubchapterModulesGridProps> = ({
   // Combined & ordered
   const STORAGE_KEY = `sibar_card_order_${activeSubchapter.id}`;
   const [allCards, setAllCards] = useState<CardItem[]>([]);
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
 
   useEffect(() => {
     const combined = [...conceptItems, ...exampleItems, ...exerciseItems];
@@ -182,25 +183,35 @@ export const SubchapterModulesGrid: React.FC<SubchapterModulesGridProps> = ({
   });
 
   // Drag & drop
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    setDraggedIndex(index);
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedId(id);
     e.dataTransfer.effectAllowed = 'move';
   };
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
-  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+  const handleDragEnd = () => {
+    setDraggedId(null);
+  };
+  const handleDrop = (e: React.DragEvent, targetId: string) => {
     e.preventDefault();
-    if (draggedIndex === null || draggedIndex === dropIndex) return;
-    const newCards = [...filteredCards];
-    const [moved] = newCards.splice(draggedIndex, 1);
-    newCards.splice(dropIndex, 0, moved);
-    setAllCards(newCards);
-    setDraggedIndex(null);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newCards.map((c) => c.id)));
-    } catch (e) {}
+    if (!draggedId || draggedId === targetId) {
+      setDraggedId(null);
+      return;
+    }
+    const fromIndex = allCards.findIndex((c) => c.id === draggedId);
+    const toIndex = allCards.findIndex((c) => c.id === targetId);
+    if (fromIndex !== -1 && toIndex !== -1) {
+      const newCards = [...allCards];
+      const [moved] = newCards.splice(fromIndex, 1);
+      newCards.splice(toIndex, 0, moved);
+      setAllCards(newCards);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(newCards.map((c) => c.id)));
+      } catch (e) {}
+    }
+    setDraggedId(null);
   };
 
   return (
@@ -302,8 +313,8 @@ export const SubchapterModulesGrid: React.FC<SubchapterModulesGridProps> = ({
         />
       ) : (
         <div className="space-y-4">
-          {filteredCards.map((card, index) => {
-            const isDragging = draggedIndex === index;
+          {filteredCards.map((card) => {
+            const isDragging = draggedId === card.id;
 
             // ── CONCEPT CARD ───────────────────────────────────────────────
             if (card.type === 'concept') {
@@ -315,48 +326,79 @@ export const SubchapterModulesGrid: React.FC<SubchapterModulesGridProps> = ({
                 <div
                   key={card.id}
                   draggable
-                  onDragStart={(e) => handleDragStart(e, index)}
+                  onDragStart={(e) => handleDragStart(e, card.id)}
                   onDragOver={handleDragOver}
-                  onDrop={(e) => handleDrop(e, index)}
+                  onDragEnd={handleDragEnd}
+                  onDrop={(e) => handleDrop(e, card.id)}
                   className={`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-4 sm:p-6 shadow-m3-1 hover:border-indigo-300 dark:hover:border-indigo-800 transition-all space-y-4 ${
                     isDragging ? 'opacity-40 scale-[0.99] border-dashed border-indigo-500' : ''
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-2 sm:gap-4">
-                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                      <span className="cursor-grab active:cursor-grabbing p-1 rounded-lg text-slate-300 hover:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
+                  <div className="flex items-start justify-between gap-3 sm:gap-4">
+                    <div className="flex items-start gap-2.5 sm:gap-3 min-w-0">
+                      <span className="cursor-grab active:cursor-grabbing p-1 rounded-lg text-slate-300 hover:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 mt-0.5">
                         <GripVertical className="w-4 h-4" />
                       </span>
-                      <span className="p-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800">
-                        <BookOpen className="w-4 h-4" />
-                      </span>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-200/40">CONCEPT</span>
-                      {isCompleted ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Completed
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
-                          <HelpCircle className="w-3.5 h-3.5" /> Unread
-                        </span>
-                      )}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap mb-1.5">
+                          <span className="p-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800">
+                            <BookOpen className="w-4 h-4" />
+                          </span>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-200/40">
+                            CONCEPT
+                          </span>
+                          {isCompleted ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Completed
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700">
+                              <HelpCircle className="w-3.5 h-3.5" /> Unread
+                            </span>
+                          )}
+                        </div>
+
+                        <Link
+                          href={`/projects/${slug}/outlines/${activeSubchapter.id}/concepts/${card.id}`}
+                          className="group inline-flex items-center gap-2 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                        >
+                          <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight break-words group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                            {card.title}
+                          </h3>
+                          <ArrowRight className="w-4 h-4 text-indigo-600 dark:text-indigo-400 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all flex-shrink-0" />
+                        </Link>
+                      </div>
                     </div>
-                    <button
-                      onClick={() => toggleExpand(`concept-${card.id}`)}
-                      className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 flex-shrink-0"
-                    >
-                      {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                      <span className="hidden sm:inline">{isExpanded ? 'Collapse' : 'Read & Complete'}</span>
-                    </button>
+
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <Link
+                        href={`/projects/${slug}/outlines/${activeSubchapter.id}/concepts`}
+                        className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
+                        title="Edit concepts"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => toggleExpand(`concept-${card.id}`)}
+                        className="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-xs font-semibold flex items-center gap-1 transition-all"
+                        title={isExpanded ? 'Collapse preview' : 'Expand in-place preview'}
+                      >
+                        {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                        <span className="hidden sm:inline">{isExpanded ? 'Collapse' : 'Preview'}</span>
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="cursor-pointer" onClick={() => toggleExpand(`concept-${card.id}`)}>
-                    <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight mb-2">{card.title}</h3>
-                    <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 text-xs leading-relaxed text-slate-800 dark:text-slate-200 overflow-x-auto">
-                      <MathRenderer content={card.content} />
-                    </div>
+                  {/* Summary Preview */}
+                  <div
+                    className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 text-xs leading-relaxed text-slate-800 dark:text-slate-200 overflow-x-auto cursor-pointer hover:border-indigo-200 transition-colors"
+                    onClick={() => toggleExpand(`concept-${card.id}`)}
+                  >
+                    <MathRenderer content={card.content} />
                   </div>
 
+                  {/* In-place collapsible expansion */}
                   {isExpanded && (
                     <div className="space-y-4 pt-3 border-t border-slate-100 dark:border-slate-800 animate-in fade-in duration-200">
                       {examples.length > 0 && (
@@ -397,7 +439,14 @@ export const SubchapterModulesGrid: React.FC<SubchapterModulesGridProps> = ({
                           })}
                         </div>
                       )}
-                      <div className="flex justify-end pt-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+                        <Link
+                          href={`/projects/${slug}/outlines/${activeSubchapter.id}/concepts/${card.id}`}
+                          className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                        >
+                          <span>Open Full Detailed View</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </Link>
                         <button
                           onClick={() => handleToggleConceptStatus(card.id)}
                           className={`px-5 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-2 transition-all shadow-md ${
@@ -437,11 +486,12 @@ export const SubchapterModulesGrid: React.FC<SubchapterModulesGridProps> = ({
                 <div
                   key={card.id}
                   draggable
-                  onDragStart={(e) => handleDragStart(e, index)}
+                  onDragStart={(e) => handleDragStart(e, card.id)}
                   onDragOver={handleDragOver}
-                  onDrop={(e) => handleDrop(e, index)}
+                  onDragEnd={handleDragEnd}
+                  onDrop={(e) => handleDrop(e, card.id)}
                   className={`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-4 sm:p-6 shadow-m3-1 hover:border-amber-300 dark:hover:border-amber-700 transition-all space-y-4 ${
-                    isDragging ? 'opacity-40 scale-[0.99] border-dashed' : ''
+                    isDragging ? 'opacity-40 scale-[0.99] border-dashed border-amber-500' : ''
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2 sm:gap-4">
@@ -547,11 +597,12 @@ export const SubchapterModulesGrid: React.FC<SubchapterModulesGridProps> = ({
                 <div
                   key={card.id}
                   draggable
-                  onDragStart={(e) => handleDragStart(e, index)}
+                  onDragStart={(e) => handleDragStart(e, card.id)}
                   onDragOver={handleDragOver}
-                  onDrop={(e) => handleDrop(e, index)}
+                  onDragEnd={handleDragEnd}
+                  onDrop={(e) => handleDrop(e, card.id)}
                   className={`bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-4 sm:p-6 shadow-m3-1 hover:border-violet-300 dark:hover:border-violet-700 transition-all space-y-4 ${
-                    isDragging ? 'opacity-40 scale-[0.99] border-dashed' : ''
+                    isDragging ? 'opacity-40 scale-[0.99] border-dashed border-violet-500' : ''
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3 sm:gap-4">
