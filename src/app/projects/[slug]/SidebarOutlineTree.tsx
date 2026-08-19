@@ -9,6 +9,7 @@ interface SidebarOutlineTreeProps {
   subchapters: any[];
   activeSubId?: string;
   slug: string;
+  onSelect?: () => void;
 }
 
 export const SidebarOutlineTree: React.FC<SidebarOutlineTreeProps> = ({
@@ -16,6 +17,7 @@ export const SidebarOutlineTree: React.FC<SidebarOutlineTreeProps> = ({
   subchapters,
   activeSubId,
   slug,
+  onSelect,
 }) => {
   const [openChapters, setOpenChapters] = useState<Record<string, boolean>>(() => {
     const state: Record<string, boolean> = {};
@@ -85,16 +87,16 @@ export const SidebarOutlineTree: React.FC<SidebarOutlineTreeProps> = ({
                 onClick={() => toggleChapter(ch.id)}
                 className="w-full flex items-center justify-between p-2 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
-                <div className="flex items-center gap-2 font-mono">
-                  <span className="text-indigo-600 dark:text-indigo-400">{ch.code}</span>
-                  <span className="font-sans font-semibold text-slate-900 dark:text-white">{ch.title}</span>
+                <div className="flex items-center gap-2 font-mono text-left">
+                  <span className="text-indigo-600 dark:text-indigo-400 flex-shrink-0">{ch.code}</span>
+                  <span className="font-sans font-semibold text-slate-900 dark:text-white line-clamp-1">{ch.title}</span>
                 </div>
-                {isOpen ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
+                {isOpen ? <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0 ml-1" /> : <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0 ml-1" />}
               </button>
 
               {/* Subchapters List */}
               {isOpen && (
-                <div className="pl-4 space-y-0.5 border-l border-slate-200 dark:border-slate-800 ml-3">
+                <div className="pl-3 sm:pl-4 space-y-0.5 border-l border-slate-200 dark:border-slate-800 ml-3">
                   {children.map((sub) => {
                     const isActive = sub.id === activeSubId;
                     const subPct = Math.round(sub.progressPercentage || 0);
@@ -103,15 +105,16 @@ export const SidebarOutlineTree: React.FC<SidebarOutlineTreeProps> = ({
                       <Link
                         key={sub.id}
                         href={`/projects/${slug}?sub=${sub.id}`}
-                        className={`w-full flex items-center justify-between py-2 px-3 rounded-xl text-xs font-medium transition-all ${
+                        onClick={onSelect}
+                        className={`w-full flex items-center justify-between py-2 px-2.5 sm:px-3 rounded-xl text-xs font-medium transition-all ${
                           isActive
                             ? 'bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-300 font-bold shadow-sm'
                             : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60'
                         }`}
                       >
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-[11px] text-slate-400 font-semibold">{sub.code}</span>
-                          <span className="truncate max-w-[140px]">{sub.title}</span>
+                        <div className="flex items-center gap-2 min-w-0 pr-2">
+                          <span className="font-mono text-[11px] text-slate-400 font-semibold flex-shrink-0">{sub.code}</span>
+                          <span className="truncate">{sub.title}</span>
                         </div>
 
                         {/* Circular Progress Ring indicator with Hover Percentage Tooltip */}

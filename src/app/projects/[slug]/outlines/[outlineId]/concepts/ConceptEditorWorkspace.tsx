@@ -18,6 +18,7 @@ import {
   Trash2,
   CheckCircle2,
   Layers,
+  X,
 } from 'lucide-react';
 
 export interface ConceptItem {
@@ -127,20 +128,20 @@ export const ConceptEditorWorkspace: React.FC<ConceptEditorWorkspaceProps> = ({
   return (
     <div className="space-y-8">
       {/* Concept Action Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-m3-1">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-4 sm:p-6 shadow-m3-1">
         <div>
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <BookOpen className="w-5 h-5 text-indigo-600" />
+          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-indigo-600 flex-shrink-0" />
             <span>Subchapter Core Concepts ({activeConcepts.length})</span>
           </h2>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 mt-0.5">
             Define multiple core theory cards, theorems, and LaTeX formula derivations.
           </p>
         </div>
 
         <button
           onClick={handleOpenAdd}
-          className="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/30 flex items-center gap-2 transition-all m3-ripple"
+          className="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/30 flex items-center justify-center gap-2 transition-all m3-ripple self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           <span>Add New Concept Card</span>
@@ -149,12 +150,19 @@ export const ConceptEditorWorkspace: React.FC<ConceptEditorWorkspaceProps> = ({
 
       {/* Editor Modal / Drawer */}
       {isEditing && (
-        <form onSubmit={handleSaveItem} className="bg-white dark:bg-slate-900 border-2 border-indigo-500/40 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+        <form onSubmit={handleSaveItem} className="bg-white dark:bg-slate-900 border-2 border-indigo-500/40 rounded-3xl p-4 sm:p-6 md:p-8 shadow-2xl space-y-6 animate-in fade-in duration-200">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-indigo-600" />
               <span>{editingItem?.title ? 'Edit Concept Card' : 'New Concept Card'}</span>
             </h3>
+            <button
+              type="button"
+              onClick={() => setIsEditing(false)}
+              className="p-1 rounded-xl text-slate-400 hover:text-slate-600"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
           <div className="space-y-4">
@@ -172,13 +180,13 @@ export const ConceptEditorWorkspace: React.FC<ConceptEditorWorkspaceProps> = ({
               />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               <div className="space-y-2">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
                   Concept Theory & Formulas (LaTeX Markdown $...$ or $$...$$)
                 </label>
                 <textarea
-                  rows={10}
+                  rows={8}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   required
@@ -192,7 +200,7 @@ export const ConceptEditorWorkspace: React.FC<ConceptEditorWorkspaceProps> = ({
                   <Eye className="w-3.5 h-3.5" />
                   <span>Live KaTeX Math Preview</span>
                 </label>
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 min-h-[210px] text-xs leading-relaxed text-slate-800 dark:text-slate-200">
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 min-h-[160px] sm:min-h-[210px] text-xs leading-relaxed text-slate-800 dark:text-slate-200 overflow-x-auto">
                   {content ? (
                     <MathRenderer content={content} />
                   ) : (
@@ -203,7 +211,7 @@ export const ConceptEditorWorkspace: React.FC<ConceptEditorWorkspaceProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
             <div>
               {editingItem && concepts.some((c) => c.id === editingItem.id) && (
                 <button
@@ -212,7 +220,7 @@ export const ConceptEditorWorkspace: React.FC<ConceptEditorWorkspaceProps> = ({
                     setConceptToDeleteId(editingItem.id);
                     setIsEditing(false);
                   }}
-                  className="px-4 py-2.5 rounded-xl border border-rose-200 text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-1.5 transition-colors"
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-rose-200 text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center justify-center gap-1.5 transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
                   <span>Delete Concept</span>
@@ -224,14 +232,14 @@ export const ConceptEditorWorkspace: React.FC<ConceptEditorWorkspaceProps> = ({
               <button
                 type="button"
                 onClick={() => setIsEditing(false)}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 text-center"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isPending}
-                className="px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold shadow-md shadow-indigo-600/30 flex items-center gap-2 disabled:opacity-50"
+                className="flex-1 sm:flex-initial px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-xs font-semibold shadow-md shadow-indigo-600/30 flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 <span>Save Concept</span>
@@ -254,19 +262,19 @@ export const ConceptEditorWorkspace: React.FC<ConceptEditorWorkspaceProps> = ({
           {activeConcepts.map((item, idx) => (
             <div
               key={item.id}
-              className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-m3-1 space-y-4"
+              className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-4 sm:p-6 shadow-m3-1 space-y-4"
             >
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <span className="w-7 h-7 rounded-xl bg-indigo-50 text-indigo-600 font-bold text-xs flex items-center justify-center font-mono">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                  <span className="w-7 h-7 rounded-xl bg-indigo-50 text-indigo-600 font-bold text-xs flex items-center justify-center font-mono flex-shrink-0">
                     #{idx + 1}
                   </span>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">
                     {item.title}
                   </h3>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 flex-shrink-0">
                   <button
                     onClick={() => handleOpenEdit(item)}
                     className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
@@ -284,7 +292,7 @@ export const ConceptEditorWorkspace: React.FC<ConceptEditorWorkspaceProps> = ({
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 text-xs leading-relaxed text-slate-800 dark:text-slate-200">
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 text-xs leading-relaxed text-slate-800 dark:text-slate-200 overflow-x-auto">
                 <MathRenderer content={item.content} />
               </div>
             </div>

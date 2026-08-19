@@ -263,23 +263,23 @@ export const ExampleManagerWorkspace: React.FC<ExampleManagerWorkspaceProps> = (
     <div className="space-y-6">
       {/* Top Header Breadcrumb & Actions */}
       <Breadcrumb items={breadcrumbs} />
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-m3-1">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-4 sm:p-6 shadow-m3-1">
         <div className="flex items-center gap-3">
           <Link
             href={`/projects/${slug}?sub=${outlineId}`}
-            className="p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition-colors"
+            className="p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition-colors flex-shrink-0"
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-              <Lightbulb className="w-5 h-5 text-amber-500" />
+            <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+              <Lightbulb className="w-5 h-5 text-amber-500 flex-shrink-0" />
               <span>Example Problem Builder ({initialExamples.length})</span>
             </h1>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
           <GeminiOCRModal
             onBulkImport={handleBulkOCRImport}
             label="Generate Example Problem (Gemini AI)"
@@ -299,10 +299,10 @@ export const ExampleManagerWorkspace: React.FC<ExampleManagerWorkspaceProps> = (
       {isFormOpen && (
         <form
           onSubmit={handleSubmit}
-          className="bg-white dark:bg-slate-900 border-2 border-amber-500/40 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 animate-in fade-in duration-200"
+          className="bg-white dark:bg-slate-900 border-2 border-amber-500/40 rounded-3xl p-4 sm:p-6 md:p-8 shadow-2xl space-y-6 animate-in fade-in duration-200"
         >
           <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <Lightbulb className="w-5 h-5 text-amber-500" />
               <span>{editingId ? 'Edit Example Problem' : 'Add New Example Problem'}</span>
             </h3>
@@ -316,12 +316,12 @@ export const ExampleManagerWorkspace: React.FC<ExampleManagerWorkspaceProps> = (
           </div>
 
           {error && (
-            <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 text-xs font-semibold">
+            <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 text-xs font-semibold">
               {error}
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1">
                 Format Type
@@ -367,7 +367,7 @@ export const ExampleManagerWorkspace: React.FC<ExampleManagerWorkspaceProps> = (
               className="w-full p-4 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500"
             />
             {statement.trim() && (
-              <div className="p-4 rounded-2xl bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/60 text-xs">
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200/60 text-xs overflow-x-auto">
                 <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1">Live LaTeX Preview</div>
                 <MathRenderer content={statement} />
               </div>
@@ -379,7 +379,7 @@ export const ExampleManagerWorkspace: React.FC<ExampleManagerWorkspaceProps> = (
             <div className="space-y-4 pt-2 border-t border-slate-100 dark:border-slate-800">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  Multiple Choice Options & Correct Keys
+                  Multiple Choice Options &amp; Correct Keys
                 </label>
                 <button
                   type="button"
@@ -394,11 +394,11 @@ export const ExampleManagerWorkspace: React.FC<ExampleManagerWorkspaceProps> = (
                 {optionsList.map((opt, oIdx) => {
                   const isKey = correctOptionIndices.includes(oIdx);
                   return (
-                    <div key={oIdx} className="flex items-center gap-3">
+                    <div key={oIdx} className="flex items-center gap-2 sm:gap-3">
                       <button
                         type="button"
                         onClick={() => toggleCorrectIndex(oIdx)}
-                        className={`p-2 rounded-xl border transition-all ${
+                        className={`p-2 rounded-xl border transition-all flex-shrink-0 ${
                           isKey
                             ? 'bg-emerald-500 text-white border-emerald-600 shadow-sm'
                             : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700'
@@ -413,14 +413,14 @@ export const ExampleManagerWorkspace: React.FC<ExampleManagerWorkspaceProps> = (
                         value={opt}
                         onChange={(e) => handleOptionChange(oIdx, e.target.value)}
                         placeholder={`Option ${String.fromCharCode(65 + oIdx)}`}
-                        className="flex-1 px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono"
+                        className="flex-1 px-3 sm:px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono min-w-0"
                       />
 
                       {optionsList.length > 2 && (
                         <button
                           type="button"
                           onClick={() => handleRemoveOptionChoice(oIdx)}
-                          className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
+                          className="p-2 text-slate-400 hover:text-rose-500 transition-colors flex-shrink-0"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -447,7 +447,7 @@ export const ExampleManagerWorkspace: React.FC<ExampleManagerWorkspaceProps> = (
             />
           </div>
 
-          <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
             <div>
               {editingId && (
                 <button
@@ -456,7 +456,7 @@ export const ExampleManagerWorkspace: React.FC<ExampleManagerWorkspaceProps> = (
                     setProblemToDeleteId(editingId);
                     setIsFormOpen(false);
                   }}
-                  className="px-4 py-2.5 rounded-2xl border border-rose-200 text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-1.5 transition-colors"
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-2xl border border-rose-200 text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center justify-center gap-1.5 transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
                   <span>Delete Example</span>
@@ -468,14 +468,14 @@ export const ExampleManagerWorkspace: React.FC<ExampleManagerWorkspaceProps> = (
               <button
                 type="button"
                 onClick={() => setIsFormOpen(false)}
-                className="px-5 py-2.5 rounded-2xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100"
+                className="flex-1 sm:flex-initial px-5 py-2.5 rounded-2xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100 text-center"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isPending}
-                className="px-6 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold shadow-md shadow-amber-500/30 flex items-center gap-2"
+                className="flex-1 sm:flex-initial px-6 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold shadow-md shadow-amber-500/30 flex items-center justify-center gap-2"
               >
                 {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 <span>{editingId ? 'Save Changes' : 'Create Example'}</span>
@@ -496,11 +496,11 @@ export const ExampleManagerWorkspace: React.FC<ExampleManagerWorkspaceProps> = (
           {initialExamples.map((prob, idx) => (
             <div
               key={prob.id}
-              className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-m3-1 space-y-4"
+              className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-4 sm:p-6 shadow-m3-1 space-y-4"
             >
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="p-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 border border-amber-200/60">
+              <div className="flex items-center justify-between gap-3 sm:gap-4">
+                <div className="flex items-center gap-2 flex-wrap min-w-0">
+                  <span className="p-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 border border-amber-200/60 flex-shrink-0">
                     <Lightbulb className="w-4 h-4" />
                   </span>
                   <span className="text-xs font-bold text-slate-900 dark:text-white font-mono">
@@ -514,7 +514,7 @@ export const ExampleManagerWorkspace: React.FC<ExampleManagerWorkspaceProps> = (
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 flex-shrink-0">
                   <button
                     onClick={() => handleEdit(prob)}
                     className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
@@ -532,7 +532,7 @@ export const ExampleManagerWorkspace: React.FC<ExampleManagerWorkspaceProps> = (
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200">
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200 overflow-x-auto">
                 <MathRenderer content={prob.problem_statement} />
               </div>
             </div>

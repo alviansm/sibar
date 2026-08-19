@@ -60,12 +60,12 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({ items, className = '' })
 
               {isLast || !item.href ? (
                 <div
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-50/90 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-300 font-semibold border border-indigo-200/60 dark:border-indigo-800/60 max-w-[220px] sm:max-w-[320px] shadow-2xs"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-50/90 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-300 font-semibold border border-indigo-200/60 dark:border-indigo-800/60 max-w-[140px] xs:max-w-[180px] sm:max-w-[320px] shadow-2xs"
                   aria-current="page"
                 >
                   {icon}
                   {item.code && (
-                    <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/80 text-indigo-700 dark:text-indigo-200 font-bold border border-indigo-200/50 dark:border-indigo-700/50">
+                    <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/80 text-indigo-700 dark:text-indigo-200 font-bold border border-indigo-200/50 dark:border-indigo-700/50 flex-shrink-0">
                       {item.code}
                     </span>
                   )}
@@ -76,11 +76,11 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({ items, className = '' })
               ) : (
                 <Link
                   href={item.href}
-                  className="flex items-center gap-1.5 px-2 py-1 rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-800/80 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all max-w-[180px] sm:max-w-[260px] group"
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-800/80 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all max-w-[120px] xs:max-w-[150px] sm:max-w-[260px] group"
                 >
                   {icon}
                   {item.code && (
-                    <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 dark:group-hover:bg-indigo-950/50 font-semibold border border-slate-200/60 dark:border-slate-700/60 transition-colors">
+                    <span className="font-mono text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 dark:group-hover:bg-indigo-950/50 font-semibold border border-slate-200/60 dark:border-slate-700/60 transition-colors flex-shrink-0">
                       {item.code}
                     </span>
                   )}

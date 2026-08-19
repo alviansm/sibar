@@ -21,65 +21,65 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({ user }) =>
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'quotes'>('profile');
 
   return (
-    <div className="flex flex-col md:flex-row gap-8 items-start">
+    <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-start">
       
-      {/* Left Settings Sidebar Navigation Navbar */}
-      <aside className="w-full md:w-64 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-4 shadow-m3-1 flex-shrink-0">
-        <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 mb-2">
+      {/* Left Settings Sidebar / Mobile Horizontal Tabs Navigation */}
+      <aside className="w-full md:w-64 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-3 sm:p-4 shadow-m3-1 flex-shrink-0">
+        <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 mb-2 hidden md:block">
           <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Settings Navigation</span>
           <h2 className="text-sm font-bold text-slate-900 dark:text-white">Account &amp; Preference</h2>
         </div>
 
-        <nav className="space-y-1">
+        <nav className="flex md:flex-col gap-1.5 md:gap-1 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveTab('profile')}
-            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-semibold transition-all ${
+            className={`flex-1 md:flex-initial flex items-center justify-between px-3 sm:px-3.5 py-2.5 sm:py-3 rounded-2xl text-xs font-semibold transition-all whitespace-nowrap ${
               activeTab === 'profile'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold'
-                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 bg-slate-50 dark:bg-slate-800/40 md:bg-transparent'
             }`}
           >
-            <div className="flex items-center gap-2.5">
-              <UserCog className="w-4 h-4" />
-              <span>Profile Settings</span>
+            <div className="flex items-center gap-2 sm:gap-2.5">
+              <UserCog className="w-4 h-4 flex-shrink-0" />
+              <span>Profile</span>
             </div>
-            <ChevronRight className={`w-3.5 h-3.5 opacity-60 ${activeTab === 'profile' ? 'text-white' : ''}`} />
+            <ChevronRight className={`w-3.5 h-3.5 opacity-60 hidden md:block ${activeTab === 'profile' ? 'text-white' : ''}`} />
           </button>
 
           <button
             onClick={() => setActiveTab('quotes')}
-            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-semibold transition-all ${
+            className={`flex-1 md:flex-initial flex items-center justify-between px-3 sm:px-3.5 py-2.5 sm:py-3 rounded-2xl text-xs font-semibold transition-all whitespace-nowrap ${
               activeTab === 'quotes'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold'
-                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 bg-slate-50 dark:bg-slate-800/40 md:bg-transparent'
             }`}
           >
-            <div className="flex items-center gap-2.5">
-              <Quote className="w-4 h-4" />
-              <span>Motivational Quote</span>
+            <div className="flex items-center gap-2 sm:gap-2.5">
+              <Quote className="w-4 h-4 flex-shrink-0" />
+              <span>Quotes</span>
             </div>
-            <ChevronRight className={`w-3.5 h-3.5 opacity-60 ${activeTab === 'quotes' ? 'text-white' : ''}`} />
+            <ChevronRight className={`w-3.5 h-3.5 opacity-60 hidden md:block ${activeTab === 'quotes' ? 'text-white' : ''}`} />
           </button>
 
           <button
             onClick={() => setActiveTab('security')}
-            className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl text-xs font-semibold transition-all ${
+            className={`flex-1 md:flex-initial flex items-center justify-between px-3 sm:px-3.5 py-2.5 sm:py-3 rounded-2xl text-xs font-semibold transition-all whitespace-nowrap ${
               activeTab === 'security'
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold'
-                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 bg-slate-50 dark:bg-slate-800/40 md:bg-transparent'
             }`}
           >
-            <div className="flex items-center gap-2.5">
-              <KeyRound className="w-4 h-4" />
-              <span>Security &amp; Password</span>
+            <div className="flex items-center gap-2 sm:gap-2.5">
+              <KeyRound className="w-4 h-4 flex-shrink-0" />
+              <span>Security</span>
             </div>
-            <ChevronRight className={`w-3.5 h-3.5 opacity-60 ${activeTab === 'security' ? 'text-white' : ''}`} />
+            <ChevronRight className={`w-3.5 h-3.5 opacity-60 hidden md:block ${activeTab === 'security' ? 'text-white' : ''}`} />
           </button>
         </nav>
       </aside>
 
       {/* Main Right Content Section */}
-      <main className="flex-1 w-full bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-m3-1 space-y-6">
+      <main className="flex-1 w-full bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-4 sm:p-6 md:p-8 shadow-m3-1 space-y-6 min-w-0">
         
         {/* Section Header */}
         <div className="pb-4 border-b border-slate-100 dark:border-slate-800">

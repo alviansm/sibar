@@ -25,7 +25,7 @@ import {
 import { MathRenderer } from '@/components/MathRenderer';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
-import { SidebarOutlineTree } from './SidebarOutlineTree';
+import { ProjectSidebar } from './ProjectSidebar';
 import { LottieEmptyState } from '@/components/LottieEmptyState';
 import { SubchapterModulesGrid } from './SubchapterModulesGrid';
 import { SubchapterManageDropdown } from './SubchapterManageDropdown';
@@ -245,70 +245,28 @@ export default async function ProjectDetailPage(props: ProjectPageProps) {
 
       <div className="flex-1 max-w-7xl w-full mx-auto flex flex-col md:flex-row">
         
-        {/* Left Sidebar: Sticky & Independently Scrollable Taxonomy Tree */}
-        <aside className="w-full md:w-80 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 p-4 sm:p-6 flex flex-col justify-between flex-shrink-0 md:sticky md:top-0 md:h-screen md:max-h-screen overflow-hidden">
-          
-          {/* Project Header Summary (Fixed Top) */}
-          <div className="space-y-2 pb-4 border-b border-slate-200/80 dark:border-slate-800 flex-shrink-0">
-            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800">
-              {project.status}
-            </span>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
-              {project.name}
-            </h2>
-            <p className="text-xs text-slate-500 line-clamp-2">
-              {project.reference_material}
-            </p>
-          </div>
-
-          {/* Scrollable Taxonomy Tree Container */}
-          <div className="flex-1 overflow-y-auto my-4 pr-1.5 space-y-3 custom-scrollbar">
-            <div className="flex items-center justify-between sticky top-0 bg-white dark:bg-slate-900 z-20 py-1 border-b border-slate-100 dark:border-slate-800/80">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <FolderTree className="w-3.5 h-3.5" />
-                <span>Syllabus Taxonomy</span>
-              </span>
-              <Link
-                href={`/projects/${project.slug}/settings`}
-                title="Edit Taxonomy Tree"
-                className="p-1 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 transition-colors"
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-
-            <SidebarOutlineTree
-              chapters={chapters}
-              subchapters={subchaptersWithProgress}
-              activeSubId={activeSubchapter?.id}
-              slug={project.slug}
-            />
-          </div>
-
-          {/* Sidebar Footer Link (Fixed Bottom) */}
-          <div className="pt-4 border-t border-slate-200/80 dark:border-slate-800 flex-shrink-0">
-            <Link
-              href={`/projects/${project.slug}/settings`}
-              className="w-full py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center justify-center gap-2 transition-colors"
-            >
-              <Settings className="w-3.5 h-3.5" />
-              <span>Project &amp; Outline Settings</span>
-            </Link>
-          </div>
-        </aside>
+        {/* Left Sidebar: Collapsible on Mobile, Sticky on Desktop */}
+        <ProjectSidebar
+          project={project}
+          chapters={chapters}
+          subchapters={subchaptersWithProgress}
+          activeSubId={activeSubchapter?.id}
+        />
 
         {/* Main Workspace Area */}
-        <main className="flex-1 p-6 sm:p-8 space-y-8 overflow-y-auto">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8 overflow-y-auto min-w-0">
           
           {activeSubchapter ? (
             <>
               {/* Workspace Header & Action */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200/80 dark:border-slate-800">
-                <div className="space-y-1">
+                <div className="space-y-1.5 min-w-0 flex-1">
                   <Breadcrumb items={breadcrumbs} className="mb-2" />
-                  <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
-                    <span>{activeSubchapter.title}</span>
-                    <span className={`text-xs px-3 py-1 rounded-full font-semibold ${
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-slate-900 dark:text-white tracking-tight break-words">
+                      {activeSubchapter.title}
+                    </h1>
+                    <span className={`text-xs px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full font-semibold flex-shrink-0 ${
                       activeSubchapter.status === 'mastered'
                         ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
                         : activeSubchapter.status === 'in_progress'
@@ -317,19 +275,21 @@ export default async function ProjectDetailPage(props: ProjectPageProps) {
                     }`}>
                       {activeSubchapter.status.replace('_', ' ').toUpperCase()}
                     </span>
-                  </h1>
+                  </div>
                   {activeSubchapter.description && (
-                    <div className="text-sm text-slate-600 dark:text-slate-400 max-w-2xl pt-1">
+                    <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-2xl pt-1 overflow-x-auto">
                       <MathRenderer content={activeSubchapter.description} />
                     </div>
                   )}
                 </div>
 
                 {/* Right-side Subchapter Management Dropdown */}
-                <SubchapterManageDropdown
-                  slug={project.slug}
-                  outlineId={activeSubchapter.id}
-                />
+                <div className="self-start sm:self-auto">
+                  <SubchapterManageDropdown
+                    slug={project.slug}
+                    outlineId={activeSubchapter.id}
+                  />
+                </div>
               </div>
 
               {/* Drag and Drop Modular Grid (Concepts, Examples & Exercises) */}

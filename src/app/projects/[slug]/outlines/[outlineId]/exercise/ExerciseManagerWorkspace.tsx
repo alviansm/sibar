@@ -139,17 +139,17 @@ export const ExerciseManagerWorkspace: React.FC<ExerciseManagerWorkspaceProps> =
     <div className="space-y-6">
       {/* Header & Main Add Button */}
       <Breadcrumb items={breadcrumbs} />
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-m3-1">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-4 sm:p-6 shadow-m3-1">
         <div className="flex items-center gap-3">
           <Link
             href={`/projects/${slug}?sub=${outlineId}`}
-            className="p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition-colors"
+            className="p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition-colors flex-shrink-0"
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-              <Layers className="w-5 h-5 text-violet-600" />
+            <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+              <Layers className="w-5 h-5 text-violet-600 flex-shrink-0" />
               <span>Exercise Sets Manager ({initialExerciseSets.length})</span>
             </h1>
           </div>
@@ -160,7 +160,7 @@ export const ExerciseManagerWorkspace: React.FC<ExerciseManagerWorkspaceProps> =
             setModalStep('choice');
             setIsModalOpen(true);
           }}
-          className="px-5 py-3 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-violet-600/30 flex items-center gap-2 transition-all m3-ripple"
+          className="px-5 py-3 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-violet-600/30 flex items-center justify-center gap-2 transition-all m3-ripple self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           <span>Add Exercise Set</span>
@@ -174,7 +174,7 @@ export const ExerciseManagerWorkspace: React.FC<ExerciseManagerWorkspaceProps> =
           message="Click '+ Add Exercise Set' to create timed/graded problem sets with multiple choice and essay questions for student self-study."
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           {initialExerciseSets.map((exSet) => {
             const countLabel = [
               exSet.mcqCount > 0 ? `${exSet.mcqCount} MCQ` : null,
@@ -185,12 +185,12 @@ export const ExerciseManagerWorkspace: React.FC<ExerciseManagerWorkspaceProps> =
             return (
               <div
                 key={exSet.id}
-                className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-m3-1 space-y-4 hover:border-violet-300 dark:hover:border-violet-700 transition-all flex flex-col justify-between"
+                className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-4 sm:p-6 shadow-m3-1 space-y-4 hover:border-violet-300 dark:hover:border-violet-700 transition-all flex flex-col justify-between"
               >
                 <div className="space-y-3">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="p-1.5 rounded-xl bg-violet-50 dark:bg-violet-950/60 text-violet-600 border border-violet-200/60">
+                  <div className="flex items-start justify-between gap-3 sm:gap-4">
+                    <div className="flex items-center gap-2 flex-wrap min-w-0">
+                      <span className="p-1.5 rounded-xl bg-violet-50 dark:bg-violet-950/60 text-violet-600 border border-violet-200/60 flex-shrink-0">
                         <Layers className="w-4 h-4" />
                       </span>
                       <span className="text-[10px] font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/60 px-2 py-0.5 rounded border border-violet-200/40">
@@ -204,7 +204,7 @@ export const ExerciseManagerWorkspace: React.FC<ExerciseManagerWorkspaceProps> =
 
                     <button
                       onClick={() => setSetToDeleteId(exSet.id)}
-                      className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                      className="p-2 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors flex-shrink-0"
                       title="Delete Exercise Set"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -212,25 +212,25 @@ export const ExerciseManagerWorkspace: React.FC<ExerciseManagerWorkspaceProps> =
                   </div>
 
                   <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">{exSet.title}</h3>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight break-words">{exSet.title}</h3>
                     {exSet.description && (
                       <p className="text-xs text-slate-500 mt-1 line-clamp-2">{exSet.description}</p>
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 text-center pt-1">
+                  <div className="grid grid-cols-2 gap-2.5 sm:gap-3 text-center pt-1">
                     <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                      <div className="text-lg font-black text-slate-900 dark:text-white font-mono">{exSet.questionCount}</div>
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Questions ({countLabel})</div>
+                      <div className="text-base sm:text-lg font-black text-slate-900 dark:text-white font-mono">{exSet.questionCount}</div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate">Questions ({countLabel})</div>
                     </div>
                     <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
-                      <div className="text-lg font-black text-violet-600 dark:text-violet-400 font-mono">{exSet.passing_grade}%</div>
+                      <div className="text-base sm:text-lg font-black text-violet-600 dark:text-violet-400 font-mono">{exSet.passing_grade}%</div>
                       <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Passing Grade</div>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
                   <Link
                     href={`/projects/${slug}/outlines/${outlineId}/exercise/${exSet.id}`}
                     className="flex-1 py-2.5 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold rounded-2xl flex items-center justify-center gap-2 transition-all"
@@ -256,7 +256,7 @@ export const ExerciseManagerWorkspace: React.FC<ExerciseManagerWorkspaceProps> =
       {/* Creation Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Layers className="w-5 h-5 text-violet-600" />

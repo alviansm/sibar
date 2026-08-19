@@ -471,28 +471,28 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
 
       {/* Header & Timer Bar */}
       <Breadcrumb items={breadcrumbs} />
-      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-m3-1 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-4 sm:p-6 shadow-m3-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <button
             type="button"
             onClick={() => { setPendingNavUrl(null); setShowLeaveModal(true); }}
-            className="p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-rose-600 transition-colors"
+            className="p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-rose-600 transition-colors flex-shrink-0"
             title="Leave Exercise"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <div>
-            <h1 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
+          <div className="min-w-0">
+            <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight truncate">
               {subchapterTitle}
             </h1>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
           {/* Stopwatch display */}
           {timerMode === 'stopwatch' && (
-            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-violet-50 dark:bg-violet-950/60 border border-violet-200/60 dark:border-violet-800 text-violet-700 dark:text-violet-300 font-mono text-xs font-bold">
+            <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-2xl bg-violet-50 dark:bg-violet-950/60 border border-violet-200/60 dark:border-violet-800 text-violet-700 dark:text-violet-300 font-mono text-xs font-bold flex-shrink-0">
               <Clock className="w-3.5 h-3.5 text-violet-600 animate-pulse" />
               <span>{formatSecondsToHHMMSS(seconds)}</span>
               <button type="button" onClick={() => setIsActive(!isActive)} className="ml-1 text-violet-500 hover:text-violet-700" title={isActive ? 'Pause' : 'Resume'}>
@@ -503,7 +503,7 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
 
           {/* Countdown display */}
           {timerMode === 'countdown' && (
-            <div className={`flex items-center gap-2 px-3.5 py-1.5 rounded-2xl font-mono text-xs font-bold border transition-all ${
+            <div className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-2xl font-mono text-xs font-bold border transition-all flex-shrink-0 ${
               isCountdownCritical
                 ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 dark:border-rose-800 text-rose-700 dark:text-rose-300'
                 : isCountdownWarning
@@ -520,7 +520,7 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
 
           {/* No timer badge */}
           {timerMode === 'none' && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 font-mono text-xs">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 font-mono text-xs flex-shrink-0">
               <TimerOff className="w-3.5 h-3.5" />
               <span>No Timer</span>
             </div>
@@ -529,21 +529,23 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
           <button
             type="button"
             onClick={() => setShowNavModal(true)}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-mono text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shadow-xs"
+            className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-mono text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all shadow-xs flex-shrink-0"
           >
             <LayoutGrid className="w-3.5 h-3.5 text-violet-600" />
-            <span>Question Navigation ({answeredCount}/{problems.length})</span>
+            <span className="hidden xs:inline">Nav</span>
+            <span className="xs:hidden">Grid</span>
+            <span>({answeredCount}/{problems.length})</span>
             <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
           </button>
         </div>
       </div>
 
       {/* Current Question Card */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-m3-1 space-y-6">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-4 sm:p-6 md:p-8 shadow-m3-1 space-y-6">
 
-        <div className="flex items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-3">
-            <span className="w-8 h-8 rounded-2xl bg-violet-50 dark:bg-violet-950/60 border border-violet-200/60 text-violet-600 font-black text-xs flex items-center justify-center font-mono">
+        <div className="flex items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
+            <span className="w-8 h-8 rounded-2xl bg-violet-50 dark:bg-violet-950/60 border border-violet-200/60 text-violet-600 font-black text-xs flex items-center justify-center font-mono flex-shrink-0">
               #{currentIndex + 1}
             </span>
             <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono">
@@ -552,24 +554,25 @@ export const PracticeSessionRunner: React.FC<PracticeSessionRunnerProps> = ({
             <span className="text-xs text-amber-500 font-bold font-mono">Diff {currentProb.difficulty}/5</span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             <button
               type="button"
               onClick={() => toggleFlag(currentIndex)}
-              className={`px-3 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border ${
+              className={`px-2.5 sm:px-3 py-1 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all border ${
                 flaggedQuestions[currentIndex]
                   ? 'bg-amber-100 dark:bg-amber-950/80 border-amber-400 text-amber-900 dark:text-amber-300 shadow-xs'
                   : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-950/40'
               }`}
             >
               <Flag className={`w-3.5 h-3.5 ${flaggedQuestions[currentIndex] ? 'fill-amber-500 text-amber-500' : ''}`} />
-              <span>{flaggedQuestions[currentIndex] ? 'Flagged' : 'Flag Question'}</span>
+              <span className="hidden xs:inline">{flaggedQuestions[currentIndex] ? 'Flagged' : 'Flag Question'}</span>
             </button>
-            <span className="text-xs text-slate-400 font-mono hidden sm:inline">Question {currentIndex + 1} of {problems.length}</span>
+            <span className="text-xs text-slate-400 font-mono hidden sm:inline">{currentIndex + 1}/{problems.length}</span>
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200 leading-relaxed">
+        {/* Question Statement */}
+        <div className="p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 text-xs sm:text-sm text-slate-900 dark:text-slate-100 leading-relaxed font-sans overflow-x-auto">
           <MathRenderer content={currentProb.problem_statement} />
         </div>
 
