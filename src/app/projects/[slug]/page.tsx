@@ -31,6 +31,7 @@ import { LottieEmptyState } from '@/components/LottieEmptyState';
 import { SubchapterModulesGrid } from './SubchapterModulesGrid';
 import { SubchapterManageDropdown } from './SubchapterManageDropdown';
 import { checkAndFinalizeExpiredSession } from '@/app/actions/exercise';
+import { WorkspaceTracker } from '@/components/WorkspaceTracker';
 
 export const revalidate = 0;
 
@@ -250,8 +251,24 @@ export default async function ProjectDetailPage(props: ProjectPageProps) {
     );
   }
 
+  const wsTitle = activeSubchapter
+    ? `Opened Subchapter: [${activeSubchapter.code}] ${activeSubchapter.title}`
+    : `Opened Project: ${project.name}`;
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
+      <WorkspaceTracker
+        workspaceType="project_workspace"
+        title={wsTitle}
+        description={`Study track: ${project.name}`}
+        metadata={{
+          slug: project.slug,
+          projectId: project.id,
+          outlineId: activeSubchapter?.id,
+          subchapterCode: activeSubchapter?.code,
+          subchapterTitle: activeSubchapter?.title,
+        }}
+      />
       <Navbar username={user?.username || 'admin'} fullName={user?.fullName} />
 
       <div className="flex-1 max-w-7xl w-full mx-auto flex flex-col md:flex-row">

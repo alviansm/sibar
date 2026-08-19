@@ -86,7 +86,7 @@ export async function getMotivationalQuote(
 
     const validCategory = category || 'inspirational';
     const response = await fetch(
-      `https://api-ninjas.com/api/quotes?category=${encodeURIComponent(validCategory)}`,
+      `https://api.api-ninjas.com/v1/quotes?category=${encodeURIComponent(validCategory)}`,
       {
         headers: {
           'X-Api-Key': apiKey.trim(),

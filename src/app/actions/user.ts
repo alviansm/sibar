@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { getSession } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
+import { logActivity } from '@/lib/telemetry';
 
 export async function updateProfileNameAction(prevState: any, formData: FormData) {
   try {
@@ -20,6 +21,15 @@ export async function updateProfileNameAction(prevState: any, formData: FormData
       .set({ full_name: fullName || null })
       .where(eq(users.id, session.userId))
       .run();
+
+    await logActivity({
+      userId: session.userId,
+      activityType: 'settings_update',
+      category: 'settings',
+      title: 'Updated Profile Display Name',
+      description: `Display name set to "${fullName || '(empty)'}"`,
+      metadata: { fullName },
+    });
 
     revalidatePath('/dashboard');
     revalidatePath('/settings');
@@ -70,6 +80,15 @@ export async function updatePasswordAction(prevState: any, formData: FormData) {
       .where(eq(users.id, session.userId))
       .run();
 
+    await logActivity({
+      userId: session.userId,
+      activityType: 'settings_update',
+      category: 'settings',
+      title: 'Changed Account Password',
+      description: 'Account security credentials updated successfully.',
+      metadata: { username: user.username },
+    });
+
     revalidatePath('/settings');
 
     return { success: true, message: 'Password updated successfully!' };
@@ -101,6 +120,15 @@ export async function updateQuoteSettingsAction(prevState: any, formData: FormDa
       })
       .where(eq(users.id, session.userId))
       .run();
+
+    await logActivity({
+      userId: session.userId,
+      activityType: 'settings_update',
+      category: 'settings',
+      title: 'Updated Motivational Quote Preferences',
+      description: `Interval: ${targetInterval} | Category: ${targetCategory}`,
+      metadata: { quoteRefreshInterval: targetInterval, quoteCategory: targetCategory },
+    });
 
     revalidatePath('/dashboard');
     revalidatePath('/settings');

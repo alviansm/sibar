@@ -7,6 +7,7 @@ import { Footer } from '@/components/Footer';
 import { getCurrentUser } from '@/lib/auth';
 import { notFound } from 'next/navigation';
 import { ExampleManagerWorkspace } from './ExampleManagerWorkspace';
+import { WorkspaceTracker } from '@/components/WorkspaceTracker';
 
 export const revalidate = 0;
 
@@ -51,6 +52,17 @@ export default async function ExamplesPage(props: ExamplesPageProps) {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
+      <WorkspaceTracker
+        workspaceType="examples_workspace"
+        title={`Opened Worked Examples: [${outline.code}] ${outline.title}`}
+        description={`Standalone worked problems for ${project.name}`}
+        metadata={{
+          slug: project.slug,
+          outlineId: outline.id,
+          subchapterCode: outline.code,
+          examplesCount: exampleProblems.length,
+        }}
+      />
       <Navbar username={user?.username || 'admin'} fullName={user?.fullName} />
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">

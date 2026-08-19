@@ -5,6 +5,7 @@ import { exercise_session_attempts, exercise_sets, problems, outlines, projects 
 import { eq, and, desc } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { cryptoNativeUUID } from '@/lib/utils';
+import { logActivity } from '@/lib/telemetry';
 
 // ─── Exercise Set CRUD ────────────────────────────────────────────────────────
 
@@ -28,6 +29,14 @@ export async function createExerciseSetAction(
       const proj = db.select().from(projects).where(eq(projects.id, outline.project_id)).get();
       if (proj) {
         revalidatePath(`/projects/${proj.slug}`);
+
+        await logActivity({
+          activityType: 'exercise_create',
+          category: 'exercise',
+          title: `Created Exercise Set: ${title}`,
+          description: `Passing grade: ${passingGrade}% in [${outline.code}] ${outline.title}`,
+          metadata: { exerciseId: id, outlineId, title, passingGrade, projectSlug: proj.slug },
+        });
       }
     }
 
@@ -124,6 +133,25 @@ export async function startExerciseSessionAction(
       })
       .run();
 
+    const exSet = db.select().from(exercise_sets).where(eq(exercise_sets.id, exerciseId)).get();
+    const outline = db.select().from(outlines).where(eq(outlines.id, outlineId)).get();
+
+    await logActivity({
+      activityType: 'exercise_session_start',
+      category: 'exercise',
+      title: `Started Exercise: ${exSet?.title || 'Practice Set'}`,
+      description: `Timer Mode: ${timerMode}${countdownSeconds ? ` (${Math.round(countdownSeconds / 60)} min)` : ''} | Attempt #${attemptNumber}`,
+      metadata: {
+        sessionId,
+        exerciseId,
+        outlineId,
+        attemptNumber,
+        timerMode,
+        isTimed,
+        subchapterCode: outline?.code,
+      },
+    });
+
     return { success: true, sessionId, startedAt: now };
   } catch (error: any) {
     console.error('Error in startExerciseSessionAction:', error);
@@ -153,6 +181,14 @@ export async function abandonExerciseSessionAction(sessionId: string) {
       .set({ is_deleted: 1 })
       .where(eq(exercise_session_attempts.id, sessionId))
       .run();
+
+    await logActivity({
+      activityType: 'exercise_session_abandon',
+      category: 'exercise',
+      title: 'Abandoned Exercise Session',
+      metadata: { sessionId },
+    });
+
     revalidatePath('/projects/[slug]', 'layout');
     return { success: true };
   } catch (error: any) {
@@ -315,6 +351,29 @@ export async function finishExerciseSessionAction(
       .set(updateData)
       .where(eq(exercise_session_attempts.id, sessionId))
       .run();
+
+    const sess = db.select().from(exercise_session_attempts).where(eq(exercise_session_attempts.id, sessionId)).get();
+    let exTitle = 'Exercise Set';
+    if (sess) {
+      const exSet = db.select().from(exercise_sets).where(eq(exercise_sets.id, sess.exercise_id)).get();
+      if (exSet) exTitle = exSet.title;
+    }
+
+    await logActivity({
+      activityType: 'exercise_session_finish',
+      category: 'exercise',
+      title: `Completed Exercise: ${exTitle} (${scorePct}%)`,
+      description: `${isPassed ? 'Passed' : 'Needs Practice'} | Score: ${correctAnswers}/${totalQuestions} (${scorePct}%) | Time: ${Math.round(durationSeconds / 60)} min`,
+      metadata: {
+        sessionId,
+        scorePct,
+        isPassed: Boolean(isPassed),
+        correctAnswers,
+        totalQuestions,
+        durationSeconds,
+        passingGrade,
+      },
+    });
 
     revalidatePath('/projects/[slug]', 'layout');
     return { success: true, scorePct, isPassed };

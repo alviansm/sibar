@@ -7,6 +7,7 @@ import { Footer } from '@/components/Footer';
 import { getCurrentUser } from '@/lib/auth';
 import { notFound } from 'next/navigation';
 import { ConceptDetailWorkspace } from './ConceptDetailWorkspace';
+import { WorkspaceTracker } from '@/components/WorkspaceTracker';
 
 export const revalidate = 0;
 
@@ -75,8 +76,22 @@ export default async function DedicatedConceptPage(props: DedicatedConceptPagePr
     ? db.select().from(outlines).where(and(eq(outlines.id, outline.parent_id), eq(outlines.is_deleted, 0))).get()
     : null;
 
+  const conceptTitle = currentConcept.title || `Concept #${conceptIndex + 1}`;
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
+      <WorkspaceTracker
+        workspaceType="concept_detail"
+        title={`Opened Concept Note: ${conceptTitle}`}
+        description={`Subchapter: [${outline.code}] ${outline.title} | ${project.name}`}
+        metadata={{
+          slug: project.slug,
+          outlineId: outline.id,
+          conceptId,
+          conceptTitle,
+          subchapterCode: outline.code,
+        }}
+      />
       <Navbar username={user?.username || 'admin'} fullName={user?.fullName} />
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">

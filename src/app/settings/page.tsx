@@ -10,14 +10,24 @@ import { db } from '@/db';
 import { google_accounts } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
+import { WorkspaceTracker } from '@/components/WorkspaceTracker';
+import { getTelemetryOverview } from '@/lib/telemetry';
+
 export const revalidate = 0;
 
-export default async function DedicatedSettingsPage() {
+interface SettingsPageProps {
+  searchParams: Promise<{ tab?: string }>;
+}
+
+export default async function DedicatedSettingsPage(props: SettingsPageProps) {
+  const searchParams = await props.searchParams;
   const user = await getCurrentUser();
 
   if (!user) {
     redirect('/login');
   }
+
+  const overview = await getTelemetryOverview(user.id);
 
   const accounts = db
     .select({
@@ -32,8 +42,15 @@ export default async function DedicatedSettingsPage() {
     .where(eq(google_accounts.user_id, user.id))
     .all();
 
+  const activeTab = (searchParams.tab as any) || 'profile';
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col text-slate-900 dark:text-slate-100">
+      <WorkspaceTracker
+        workspaceType="settings"
+        title="Opened Settings & Preferences"
+        description="Accessed account settings, motivational quote options, security, and telemetry."
+      />
       <Navbar username={user.username} fullName={user.fullName} />
 
       <div className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -60,7 +77,12 @@ export default async function DedicatedSettingsPage() {
         </div>
 
         {/* Settings Sidebar + Workspace */}
-        <SettingsWorkspace user={user} googleAccounts={accounts} />
+        <SettingsWorkspace
+          user={user}
+          googleAccounts={accounts}
+          initialOverview={overview}
+          initialTab={activeTab}
+        />
 
       </div>
       <Footer />

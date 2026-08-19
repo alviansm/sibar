@@ -68,7 +68,7 @@ export const DashboardQuote: React.FC<DashboardQuoteProps> = ({
             }`}
             title={
               quote.source === 'api_ninjas'
-                ? 'Fetched from API Ninjas (https://api-ninjas.com/api/quotes)'
+                ? 'Fetched from API Ninjas (https://api.api-ninjas.com/v1/quotes)'
                 : 'Loaded from local fallback dataset (50 study quotes)'
             }
           >

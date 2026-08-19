@@ -5,6 +5,7 @@ import { problems, outlines, projects, problem_attempts } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { cryptoNativeUUID } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
+import { logActivity } from '@/lib/telemetry';
 
 export async function createProblemAction(
   outlineId: string,
@@ -51,6 +52,22 @@ export async function createProblemAction(
       if (proj) {
         revalidatePath(`/projects/${proj.slug}/outlines/${outlineId}`);
         revalidatePath(`/projects/${proj.slug}`);
+
+        await logActivity({
+          activityType: 'problem_create',
+          category: 'problem',
+          title: `Created ${problemKind === 'exercise' ? 'Exercise Problem' : 'Worked Example'}: [${outline.code}]`,
+          description: `Type: ${problemType} | Difficulty: ${difficulty}/5`,
+          metadata: {
+            problemId: id,
+            outlineId,
+            problemKind,
+            problemType,
+            difficulty,
+            exerciseId,
+            projectSlug: proj.slug,
+          },
+        });
       }
     }
 
@@ -99,6 +116,14 @@ export async function updateProblemAction(
       if (proj) {
         revalidatePath(`/projects/${proj.slug}/outlines/${prob.outline_id}`);
         revalidatePath(`/projects/${proj.slug}`);
+
+        await logActivity({
+          activityType: 'problem_update',
+          category: 'problem',
+          title: `Updated Problem in [${outline.code}]`,
+          description: `Type: ${problemType} | Difficulty: ${difficulty}/5`,
+          metadata: { problemId: id, outlineId: prob.outline_id, projectSlug: proj.slug },
+        });
       }
     }
 
@@ -122,6 +147,13 @@ export async function deleteProblemAction(id: string) {
       if (proj) {
         revalidatePath(`/projects/${proj.slug}/outlines/${prob.outline_id}`);
         revalidatePath(`/projects/${proj.slug}`);
+
+        await logActivity({
+          activityType: 'problem_delete',
+          category: 'problem',
+          title: `Deleted Problem from [${outline.code}]`,
+          metadata: { problemId: id, outlineId: prob.outline_id, projectSlug: proj.slug },
+        });
       }
     }
 
@@ -178,6 +210,14 @@ export async function importProblemSetListAction(
     if (proj) {
       revalidatePath(`/projects/${proj.slug}/outlines/${outlineId}`);
       revalidatePath(`/projects/${proj.slug}`);
+
+      await logActivity({
+        activityType: 'problem_import',
+        category: 'problem',
+        title: `Imported ${count} Problems into [${outline.code}]`,
+        description: `Kind: ${problemKind} in ${proj.name}`,
+        metadata: { outlineId, count, problemKind, exerciseId, projectSlug: proj.slug },
+      });
     }
 
     revalidatePath('/dashboard');
@@ -200,6 +240,8 @@ export async function toggleExampleStatusAction(outlineId: string, problemId: st
         )
       )
       .get();
+
+    const isNowCompleted = !existing;
 
     if (existing) {
       db.update(problem_attempts)
@@ -228,10 +270,23 @@ export async function toggleExampleStatusAction(outlineId: string, problemId: st
       const proj = db.select().from(projects).where(eq(projects.id, outline.project_id)).get();
       if (proj) {
         revalidatePath(`/projects/${proj.slug}`);
+
+        await logActivity({
+          activityType: isNowCompleted ? 'example_complete' : 'example_uncomplete',
+          category: 'problem',
+          title: `${isNowCompleted ? 'Completed' : 'Uncompleted'} Worked Example in [${outline.code}]`,
+          description: `Subchapter: ${outline.title} in ${proj.name}`,
+          metadata: {
+            outlineId,
+            problemId,
+            status: isNowCompleted ? 'completed' : 'uncompleted',
+            projectSlug: proj.slug,
+          },
+        });
       }
     }
 
-    return { success: true, isCompleted: !existing };
+    return { success: true, isCompleted: isNowCompleted };
   } catch (err: any) {
     return { error: err.message || 'Failed to toggle example status.' };
   }

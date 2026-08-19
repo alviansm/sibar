@@ -28,6 +28,7 @@ import { DashboardQuote } from '@/components/DashboardQuote';
 import { getMotivationalQuote } from '@/lib/quotes';
 
 import { getCurrentUser } from '@/lib/auth';
+import { WorkspaceTracker } from '@/components/WorkspaceTracker';
 
 export const revalidate = 0;
 
@@ -100,6 +101,11 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
+      <WorkspaceTracker
+        workspaceType="dashboard"
+        title="Opened Main Dashboard"
+        description="Viewed active study tracks and cognitive telemetry summary."
+      />
       <Navbar username={user?.username || 'admin'} fullName={user?.fullName} />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">

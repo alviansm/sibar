@@ -5,6 +5,7 @@ import { projects, outlines, problems } from '@/db/schema';
 import { eq, asc } from 'drizzle-orm';
 import { cryptoNativeUUID } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
+import { logActivity } from '@/lib/telemetry';
 
 export async function createProjectAction(formData: FormData) {
   const name = formData.get('name') as string;
@@ -33,6 +34,14 @@ export async function createProjectAction(formData: FormData) {
       })
       .run();
 
+    await logActivity({
+      activityType: 'project_create',
+      category: 'project',
+      title: `Created Study Project: ${name}`,
+      description: `Target Milestone: ${target_milestone} | Reference: ${reference_material}`,
+      metadata: { projectId: id, name, slug: `${slug}-${id.substring(0, 4)}` },
+    });
+
     revalidatePath('/dashboard');
     return { success: true, slug: `${slug}-${id.substring(0, 4)}` };
   } catch (err: any) {
@@ -59,6 +68,13 @@ export async function updateProjectAction(id: string, formData: FormData) {
 
     const proj = db.select().from(projects).where(eq(projects.id, id)).get();
     if (proj) {
+      await logActivity({
+        activityType: 'project_update',
+        category: 'project',
+        title: `Updated Project Settings: ${name || proj.name}`,
+        description: `Status: ${status} | Target: ${target_milestone || proj.target_milestone}`,
+        metadata: { projectId: id, name, status, slug: proj.slug },
+      });
       revalidatePath(`/projects/${proj.slug}`);
       revalidatePath('/dashboard');
     }
@@ -262,6 +278,20 @@ export async function importTaxonomyAction(
     revalidatePath(`/projects/${proj.slug}`);
     revalidatePath(`/projects/${proj.slug}/settings`);
 
+    await logActivity({
+      activityType: 'taxonomy_import',
+      category: 'project',
+      title: `Imported Syllabus Taxonomy: ${proj.name}`,
+      description: `Generated ${totalChaptersCount} chapters, ${totalSubchaptersCount} subchapters, ${totalProblemsCount} problems.`,
+      metadata: {
+        projectId,
+        slug: proj.slug,
+        chaptersCount: totalChaptersCount,
+        subchaptersCount: totalSubchaptersCount,
+        problemsCount: totalProblemsCount,
+      },
+    });
+
     return {
       success: true,
       chaptersCount: totalChaptersCount,
@@ -311,8 +341,11 @@ export async function toggleConceptStatusAction(outlineId: string, conceptId: st
     }
 
     let updatedStatus = 'completed';
+    let targetConceptTitle = 'Concept Note';
+
     concepts = concepts.map((c) => {
       if (c.id === conceptId) {
+        targetConceptTitle = c.title || targetConceptTitle;
         const newStatus = c.status === 'completed' ? 'unread' : 'completed';
         updatedStatus = newStatus;
         return { ...c, status: newStatus };
@@ -337,6 +370,21 @@ export async function toggleConceptStatusAction(outlineId: string, conceptId: st
       revalidatePath(`/projects/${proj.slug}`);
       revalidatePath(`/projects/${proj.slug}/outlines/${outlineId}/concepts`);
       revalidatePath(`/projects/${proj.slug}/outlines/${outlineId}/concepts/${conceptId}`);
+
+      await logActivity({
+        activityType: updatedStatus === 'completed' ? 'concept_complete' : 'concept_uncomplete',
+        category: 'concept',
+        title: `${updatedStatus === 'completed' ? 'Mastered' : 'Reopened'} Concept: ${targetConceptTitle}`,
+        description: `Subchapter: [${node.code}] ${node.title} in ${proj.name}`,
+        metadata: {
+          outlineId,
+          conceptId,
+          conceptTitle: targetConceptTitle,
+          status: updatedStatus,
+          subchapterCode: node.code,
+          projectSlug: proj.slug,
+        },
+      });
     }
 
     return { success: true, newStatus: updatedStatus };

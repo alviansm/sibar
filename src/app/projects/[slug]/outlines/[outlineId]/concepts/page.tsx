@@ -11,6 +11,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, BookOpen } from 'lucide-react';
 import { ConceptEditorWorkspace } from './ConceptEditorWorkspace';
+import { WorkspaceTracker } from '@/components/WorkspaceTracker';
 
 export const revalidate = 0;
 
@@ -55,6 +56,17 @@ export default async function SubchapterConceptsPage(props: SubchapterConceptsPa
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
+      <WorkspaceTracker
+        workspaceType="concepts_workspace"
+        title={`Opened Concept Workspace: [${outline.code}] ${outline.title}`}
+        description={`Concept list editor for ${project.name}`}
+        metadata={{
+          slug: project.slug,
+          outlineId: outline.id,
+          subchapterCode: outline.code,
+          subchapterTitle: outline.title,
+        }}
+      />
       <Navbar username={user?.username || 'admin'} fullName={user?.fullName} />
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">

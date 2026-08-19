@@ -103,7 +103,7 @@ export const QuoteSettingsForm: React.FC<QuoteSettingsFormProps> = ({ user }) =>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               {hasApiKey
-                ? 'NINJAS_API_KEY is configured in .env. Live quotes will be fetched from api-ninjas.com/api/quotes.'
+                ? 'NINJAS_API_KEY is configured in .env. Live quotes will be fetched from API Ninjas.'
                 : 'NINJAS_API_KEY is omitted in .env. The app seamlessly falls back to 50 local curated study quotes.'}
             </p>
           </div>

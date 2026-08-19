@@ -7,6 +7,7 @@ import { Footer } from '@/components/Footer';
 import { getCurrentUser } from '@/lib/auth';
 import { notFound } from 'next/navigation';
 import { ExerciseManagerWorkspace } from './ExerciseManagerWorkspace';
+import { WorkspaceTracker } from '@/components/WorkspaceTracker';
 
 export const revalidate = 0;
 
@@ -79,6 +80,17 @@ export default async function ExerciseManagerPage(props: ExerciseManagerPageProp
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
+      <WorkspaceTracker
+        workspaceType="exercise_workspace"
+        title={`Opened Exercise Workspace: [${outline.code}] ${outline.title}`}
+        description={`Exercise sets list for ${project.name}`}
+        metadata={{
+          slug: project.slug,
+          outlineId: outline.id,
+          subchapterCode: outline.code,
+          exerciseSetsCount: exerciseSets.length,
+        }}
+      />
       <Navbar username={user?.username || 'admin'} fullName={user?.fullName} />
 
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">

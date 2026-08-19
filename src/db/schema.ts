@@ -156,3 +156,18 @@ export const attachments = sqliteTable('attachments', {
   created_at: integer('created_at').notNull(),
 });
 
+export const user_activities = sqliteTable('user_activities', {
+  id: text('id').primaryKey(),
+  user_id: text('user_id')
+    .references(() => users.id, { onDelete: 'cascade' }),
+  activity_type: text('activity_type').notNull(),
+  category: text('category', {
+    enum: ['auth', 'workspace', 'concept', 'problem', 'exercise', 'project', 'settings', 'ai'],
+  }).notNull(),
+  title: text('title').notNull(),
+  description: text('description'),
+  metadata_json: text('metadata_json'),
+  created_at: integer('created_at').notNull(),
+});
+
+

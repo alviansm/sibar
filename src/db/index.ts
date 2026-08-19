@@ -218,6 +218,20 @@ function ensureTablesExist() {
       created_at INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_attachments_entity ON attachments(entity_type, entity_id);
+
+    CREATE TABLE IF NOT EXISTS user_activities (
+      id TEXT PRIMARY KEY,
+      user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+      activity_type TEXT NOT NULL,
+      category TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      metadata_json TEXT,
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_user_activities_user_time ON user_activities(user_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_user_activities_category ON user_activities(category);
+    CREATE INDEX IF NOT EXISTS idx_user_activities_type ON user_activities(activity_type);
   `);
 
   // Ensure default admin-sibar user exists & credentials are updated

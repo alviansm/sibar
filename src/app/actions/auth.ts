@@ -9,6 +9,8 @@ import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { checkRateLimit, recordFailedAttempt, resetFailedAttempts } from '@/lib/rateLimit';
 import { generateCaptchaChallenge, verifyCaptchaChallenge, CaptchaChallenge } from '@/lib/captcha';
+import { logActivity } from '@/lib/telemetry';
+import { getSession } from '@/lib/auth';
 
 export async function getCaptchaAction(): Promise<CaptchaChallenge> {
   return generateCaptchaChallenge();
@@ -98,10 +100,31 @@ export async function loginAction(prevState: any, formData: FormData) {
   const token = await signJWT({ userId: user.id, username: user.username });
   await setSessionCookie(token);
 
+  await logActivity({
+    userId: user.id,
+    activityType: 'auth_login',
+    category: 'auth',
+    title: `Signed in as @${user.username}`,
+    description: `Successful login session initialized from IP ${clientIp}.`,
+    metadata: { username: user.username, ip: clientIp },
+  });
+
   redirect('/dashboard');
 }
 
 export async function logoutAction() {
+  const session = await getSession();
+  if (session?.userId) {
+    await logActivity({
+      userId: session.userId,
+      activityType: 'auth_logout',
+      category: 'auth',
+      title: `Signed out (@${session.username})`,
+      description: 'Session cookie terminated.',
+      metadata: { username: session.username },
+    });
+  }
+
   await clearSessionCookie();
   redirect('/login');
 }

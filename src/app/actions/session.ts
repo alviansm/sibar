@@ -6,6 +6,7 @@ import { eq, and, count } from 'drizzle-orm';
 import { cryptoNativeUUID } from '@/lib/utils';
 import { generateAttemptFeedback } from '@/lib/gemini';
 import { revalidatePath } from 'next/cache';
+import { logActivity } from '@/lib/telemetry';
 
 export async function logAttemptAction(
   problemId: string,
@@ -59,6 +60,9 @@ export async function logAttemptAction(
 
     // Automatically update outline status if problem solved cleanly
     const outline = db.select().from(outlines).where(eq(outlines.id, outlineId)).get();
+    let projectSlug = '';
+    let projectName = '';
+
     if (outline) {
       // If currently unvisited, upgrade to in_progress
       if (outline.status === 'unvisited') {
@@ -98,9 +102,36 @@ export async function logAttemptAction(
 
       const proj = db.select().from(projects).where(eq(projects.id, outline.project_id)).get();
       if (proj) {
+        projectSlug = proj.slug;
+        projectName = proj.name;
         revalidatePath(`/projects/${proj.slug}`);
         revalidatePath('/dashboard');
       }
+
+      const outcomeTitles: Record<string, string> = {
+        clean_solve: 'Clean Solve',
+        solved_with_hint: 'Solved With Hint',
+        surrendered: 'Surrendered Rep',
+      };
+
+      await logActivity({
+        activityType: 'problem_attempt',
+        category: 'problem',
+        title: `Logged Attempt: ${outcomeTitles[outcome] || outcome} in [${outline.code}]`,
+        description: `Time: ${timeSpentSeconds}s | Friction: ${frictionScore}/5 | Subchapter: ${outline.title}`,
+        metadata: {
+          problemId,
+          outlineId,
+          subchapterCode: outline.code,
+          subchapterTitle: outline.title,
+          projectSlug,
+          projectName,
+          attemptNumber,
+          outcome,
+          timeSpentSeconds,
+          frictionScore,
+        },
+      });
     }
 
     return { success: true, attemptId: id, aiFeedback: aiFeedbackJson ? JSON.parse(aiFeedbackJson) : null };

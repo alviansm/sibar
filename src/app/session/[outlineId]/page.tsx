@@ -8,6 +8,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { notFound, redirect } from 'next/navigation';
 import { PracticeSessionRunner } from './PracticeSessionRunner';
 import { checkAndFinalizeExpiredSession, startExerciseSessionAction } from '@/app/actions/exercise';
+import { WorkspaceTracker } from '@/components/WorkspaceTracker';
 
 export const revalidate = 0;
 
@@ -188,6 +189,19 @@ export default async function PracticeSessionPage(props: SessionPageProps) {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col">
+      <WorkspaceTracker
+        workspaceType="practice_session"
+        title={`Started Practice Session: [${outline.code}] ${outline.title}`}
+        description={`Interactive session runner | Mode: ${timerMode}`}
+        metadata={{
+          slug: project.slug,
+          outlineId: outline.id,
+          sessionId,
+          exerciseId: targetExerciseId,
+          timerMode,
+          subchapterCode: outline.code,
+        }}
+      />
       <Navbar username={user?.username || 'admin'} fullName={user?.fullName} />
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
