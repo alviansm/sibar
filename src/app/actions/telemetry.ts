@@ -5,11 +5,40 @@ import {
   logActivity,
   getTelemetryOverview,
   getActivityLogs,
+  getActivitiesForDate,
   clearUserActivityLogs,
   ActivityFilterOptions,
   ActivityCategory,
 } from '@/lib/telemetry';
 import { revalidatePath } from 'next/cache';
+
+export async function getStatsOverviewAction() {
+  try {
+    const session = await getSession();
+    if (!session?.userId) {
+      return { error: 'Unauthorized session' };
+    }
+
+    const overview = await getTelemetryOverview(session.userId);
+    return { success: true, overview };
+  } catch (error: any) {
+    return { error: error.message || 'Failed to load stats overview' };
+  }
+}
+
+export async function getDayActivitiesAction(dateStr: string) {
+  try {
+    const session = await getSession();
+    if (!session?.userId) {
+      return { error: 'Unauthorized session' };
+    }
+
+    const activities = await getActivitiesForDate(session.userId, dateStr);
+    return { success: true, activities };
+  } catch (error: any) {
+    return { error: error.message || 'Failed to fetch day activities' };
+  }
+}
 
 export async function getTelemetryDashboardDataAction(filters: ActivityFilterOptions = {}) {
   try {

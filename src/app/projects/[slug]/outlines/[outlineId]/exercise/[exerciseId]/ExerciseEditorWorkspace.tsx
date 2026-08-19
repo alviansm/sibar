@@ -19,6 +19,7 @@ import { useToast } from '@/components/Toast';
 import { LottieEmptyState } from '@/components/LottieEmptyState';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { SubchapterStudyTimer } from '@/components/SubchapterStudyTimer';
 import { AVAILABLE_GEMINI_MODELS } from '@/lib/gemini';
 import {
   ArrowLeft,
@@ -396,6 +397,16 @@ export const ExerciseEditorWorkspace: React.FC<ExerciseEditorWorkspaceProps> = (
 
   return (
     <div className="space-y-6">
+      <SubchapterStudyTimer
+        category="exercise"
+        activityName={`Curating Exercise Set: ${metaTitle}`}
+        subchapterName={`${subchapterCode} ${subchapterTitle}`}
+        projectName={projectTitle}
+        outlineId={outlineId}
+        entityId={exerciseId}
+        position="floating"
+      />
+
       {/* Top Header Breadcrumb & Actions */}
       <Breadcrumb items={breadcrumbs} />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-m3-1">

@@ -7,6 +7,7 @@ import { buildBreadcrumbs } from '@/lib/breadcrumbs';
 import { MathRenderer } from '@/components/MathRenderer';
 import { toggleConceptStatusAction } from '@/app/actions/projects';
 import { useToast } from '@/components/Toast';
+import { SubchapterStudyTimer } from '@/components/SubchapterStudyTimer';
 import {
   ArrowLeft,
   BookOpen,
@@ -141,6 +142,16 @@ export const ConceptDetailWorkspace: React.FC<ConceptDetailWorkspaceProps> = ({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
+      <SubchapterStudyTimer
+        category="concept"
+        activityName={concept.title}
+        subchapterName={`${subchapterCode} ${subchapterTitle}`}
+        projectName={projectTitle}
+        outlineId={outlineId}
+        entityId={concept.id}
+        position="floating"
+      />
+
       {/* Top Breadcrumb Navigation */}
       <Breadcrumb items={breadcrumbs} />
 

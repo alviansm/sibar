@@ -7,6 +7,7 @@ import { startExerciseSessionAction } from '@/app/actions/exercise';
 import { useToast } from '@/components/Toast';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { SubchapterStudyTimer } from '@/components/SubchapterStudyTimer';
 import {
   ArrowLeft,
   Play,
@@ -210,6 +211,15 @@ export const ExerciseLobbyWorkspace: React.FC<ExerciseLobbyWorkspaceProps> = ({
 
   return (
     <div className="max-w-4xl mx-auto space-y-4 py-1 animate-in fade-in duration-200">
+      <SubchapterStudyTimer
+        category="exercise"
+        activityName={`Exercise Workout: ${exerciseTitle}`}
+        subchapterName={`${subchapterCode} ${subchapterTitle}`}
+        projectName={projectTitle}
+        outlineId={outlineId}
+        entityId={exerciseId}
+        position="floating"
+      />
 
       <Breadcrumb items={breadcrumbs} />
       <div className="flex items-center justify-between gap-3">

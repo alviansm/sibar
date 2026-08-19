@@ -1,5 +1,5 @@
 import { db } from '@/db';
-import { user_activities, users } from '@/db/schema';
+import { user_activities, users, problem_attempts } from '@/db/schema';
 import { eq, desc, and, gte, lte, sql, like, or } from 'drizzle-orm';
 import { cryptoNativeUUID } from './utils';
 import { getSession } from './auth';
@@ -13,6 +13,18 @@ export type ActivityCategory =
   | 'project'
   | 'settings'
   | 'ai';
+
+export interface DailyStudyTimePoint {
+  date: string;
+  dayLabel: string;
+  shortLabel: string;
+  conceptSeconds: number;
+  problemSeconds: number;
+  exerciseSeconds: number;
+  totalSeconds: number;
+  totalMinutes: number;
+  activityCount: number;
+}
 
 export interface LogActivityParams {
   userId?: string | null;
@@ -182,9 +194,17 @@ export interface TelemetryOverviewData {
   problemsSolvedCount: number;
   exercisesCompletedCount: number;
   activeStreakDays: number;
+  activeStreakWeeks: number;
+  isTodayActive: boolean;
   totalActiveDays: number;
+  activeDates: string[];
   categoryDistribution: Record<string, number>;
   dailyTrend: Array<{ date: string; count: number; dayLabel: string }>;
+  dailyStudyTimeTrend: DailyStudyTimePoint[];
+  totalConceptSeconds: number;
+  totalProblemSeconds: number;
+  totalExerciseSeconds: number;
+  totalStudySeconds: number;
   recentActivities: Array<any>;
 }
 
@@ -210,12 +230,27 @@ export async function getTelemetryOverview(userId?: string | null): Promise<Tele
       .orderBy(desc(user_activities.created_at))
       .all();
 
+    // Query Problem Attempts with time spent
+    const allAttempts = db
+      .select({
+        id: problem_attempts.id,
+        time_spent_seconds: problem_attempts.time_spent_seconds,
+        created_at: problem_attempts.created_at,
+      })
+      .from(problem_attempts)
+      .where(eq(problem_attempts.is_deleted, 0))
+      .all();
+
     const totalActivities = allActivities.length;
 
     let workspaceVisitsCount = 0;
     let conceptsMasteredCount = 0;
     let problemsSolvedCount = 0;
     let exercisesCompletedCount = 0;
+
+    let totalConceptSeconds = 0;
+    let totalProblemSeconds = 0;
+    let totalExerciseSeconds = 0;
 
     const categoryDistribution: Record<string, number> = {
       auth: 0,
@@ -254,22 +289,56 @@ export async function getTelemetryOverview(userId?: string | null): Promise<Tele
       }
       if (act.activity_type === 'exercise_session_finish') exercisesCompletedCount++;
 
-      // Active date
-      const d = new Date(act.created_at * 1000);
-      const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      activeDatesSet.add(dateKey);
+      // Extract recorded time spent if any
+      let timeSpent = 0;
+      if (act.metadata_json) {
+        try {
+          const meta = JSON.parse(act.metadata_json);
+          timeSpent = Number(meta?.timeSpentSeconds || meta?.time_spent_seconds || 0);
+        } catch (e) {}
+      }
+
+      if (act.category === 'concept' || act.activity_type.includes('concept')) {
+        totalConceptSeconds += timeSpent > 0 ? timeSpent : (act.activity_type === 'concept_complete' ? 180 : 60);
+      } else if (act.category === 'problem' || act.activity_type.includes('problem') || act.activity_type.includes('example')) {
+        totalProblemSeconds += timeSpent > 0 ? timeSpent : (act.activity_type === 'example_complete' ? 180 : 60);
+      } else if (act.category === 'exercise' || act.activity_type.includes('exercise')) {
+        totalExerciseSeconds += timeSpent > 0 ? timeSpent : (act.activity_type === 'exercise_session_finish' ? 300 : 120);
+      }
+
+      // Active date: only for subchapter-related activities (Concept, Problem, Exercise)
+      const isSubchapterActivity =
+        act.category === 'concept' ||
+        act.category === 'problem' ||
+        act.category === 'exercise' ||
+        act.activity_type.includes('concept') ||
+        act.activity_type.includes('problem') ||
+        act.activity_type.includes('example') ||
+        act.activity_type.includes('exercise');
+
+      if (isSubchapterActivity) {
+        const d = new Date(act.created_at * 1000);
+        const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        activeDatesSet.add(dateKey);
+      }
     });
 
+    // Add problem attempts direct stopwatch time
+    allAttempts.forEach((attempt) => {
+      totalProblemSeconds += attempt.time_spent_seconds || 0;
+    });
+
+    const totalStudySeconds = totalConceptSeconds + totalProblemSeconds + totalExerciseSeconds;
     const totalActiveDays = activeDatesSet.size;
 
-    // Calculate active streak
+    // Calculate active daily streak
     let activeStreakDays = 0;
     const now = new Date();
     let checkDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    // Check if today is active, if not check yesterday
     const todayKey = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, '0')}-${String(checkDate.getDate()).padStart(2, '0')}`;
-    let isStreakActive = activeDatesSet.has(todayKey);
+    const isTodayActive = activeDatesSet.has(todayKey);
+    let isStreakActive = isTodayActive;
 
     if (!isStreakActive) {
       // Check yesterday
@@ -292,21 +361,116 @@ export async function getTelemetryOverview(userId?: string | null): Promise<Tele
       }
     }
 
-    // Daily trend for the past 14 days
-    const dailyTrend: Array<{ date: string; count: number; dayLabel: string }> = [];
-    const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    // Calculate Weekly Streak (consecutive weeks with at least 1 active study day)
+    const getWeekKey = (d: Date) => {
+      const target = new Date(d.valueOf());
+      const dayNr = (d.getDay() + 6) % 7; // Monday = 0
+      target.setDate(target.getDate() - dayNr + 3);
+      const firstThursday = target.valueOf();
+      target.setMonth(0, 1);
+      if (target.getDay() !== 4) {
+        target.setMonth(0, 1 + ((4 - target.getDay() + 7) % 7));
+      }
+      const weekNum = 1 + Math.ceil((firstThursday - target.valueOf()) / 604800000);
+      return `${target.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+    };
 
-    for (let i = 13; i >= 0; i--) {
+    const activeWeeksSet = new Set<string>();
+    activeDatesSet.forEach((dateStr) => {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const dateObj = new Date(y, m - 1, d);
+      activeWeeksSet.add(getWeekKey(dateObj));
+    });
+
+    let activeStreakWeeks = 0;
+    const currentWeekKey = getWeekKey(new Date());
+    let weekCheckDate = new Date();
+    let isWeekStreakActive = activeWeeksSet.has(currentWeekKey);
+
+    if (!isWeekStreakActive) {
+      // Check last week
+      weekCheckDate.setDate(weekCheckDate.getDate() - 7);
+      const lastWeekKey = getWeekKey(weekCheckDate);
+      if (activeWeeksSet.has(lastWeekKey)) {
+        isWeekStreakActive = true;
+      }
+    }
+
+    if (isWeekStreakActive) {
+      while (true) {
+        const wKey = getWeekKey(weekCheckDate);
+        if (activeWeeksSet.has(wKey)) {
+          activeStreakWeeks++;
+          weekCheckDate.setDate(weekCheckDate.getDate() - 7);
+        } else {
+          break;
+        }
+      }
+    }
+
+    // Daily trend and Study Time Trend for the past 30 days
+    const dailyTrend: Array<{ date: string; count: number; dayLabel: string }> = [];
+    const dailyStudyTimeTrend: DailyStudyTimePoint[] = [];
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    for (let i = 29; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      const dayLabel = `${dayLabels[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}`;
+      const dayLabel = `${dayNames[d.getDay()]}, ${monthNames[d.getMonth()]} ${d.getDate()}`;
+      const shortLabel = `${monthNames[d.getMonth()]} ${d.getDate()}`;
 
       const dayStart = Math.floor(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0).getTime() / 1000);
       const dayEnd = Math.floor(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59).getTime() / 1000);
 
-      const count = allActivities.filter((a) => a.created_at >= dayStart && a.created_at <= dayEnd).length;
+      const dayActs = allActivities.filter((a) => a.created_at >= dayStart && a.created_at <= dayEnd);
+      const count = dayActs.length;
       dailyTrend.push({ date: dateKey, count, dayLabel });
+
+      let conceptSec = 0;
+      let problemSec = 0;
+      let exerciseSec = 0;
+
+      dayActs.forEach((act) => {
+        let actTime = 0;
+        if (act.metadata_json) {
+          try {
+            const meta = JSON.parse(act.metadata_json);
+            actTime = Number(meta?.timeSpentSeconds || meta?.time_spent_seconds || 0);
+          } catch (e) {}
+        }
+
+        if (act.category === 'concept' || act.activity_type.includes('concept')) {
+          conceptSec += actTime > 0 ? actTime : (act.activity_type === 'concept_complete' ? 180 : 60);
+        } else if (act.category === 'problem' || act.activity_type.includes('problem') || act.activity_type.includes('example')) {
+          problemSec += actTime > 0 ? actTime : (act.activity_type === 'example_complete' ? 180 : 60);
+        } else if (act.category === 'exercise' || act.activity_type.includes('exercise')) {
+          exerciseSec += actTime > 0 ? actTime : (act.activity_type === 'exercise_session_finish' ? 300 : 120);
+        }
+      });
+
+      // Add attempts in that day
+      allAttempts
+        .filter((att) => att.created_at >= dayStart && att.created_at <= dayEnd)
+        .forEach((att) => {
+          problemSec += att.time_spent_seconds || 0;
+        });
+
+      const dayTotalSec = conceptSec + problemSec + exerciseSec;
+      const dayTotalMin = Math.round((dayTotalSec / 60) * 10) / 10;
+
+      dailyStudyTimeTrend.push({
+        date: dateKey,
+        dayLabel,
+        shortLabel,
+        conceptSeconds: conceptSec,
+        problemSeconds: problemSec,
+        exerciseSeconds: exerciseSec,
+        totalSeconds: dayTotalSec,
+        totalMinutes: dayTotalMin,
+        activityCount: count,
+      });
     }
 
     const recentActivities = allActivities.slice(0, 10).map((act) => {
@@ -326,9 +490,17 @@ export async function getTelemetryOverview(userId?: string | null): Promise<Tele
       problemsSolvedCount,
       exercisesCompletedCount,
       activeStreakDays,
+      activeStreakWeeks,
+      isTodayActive,
       totalActiveDays,
+      activeDates: Array.from(activeDatesSet),
       categoryDistribution,
       dailyTrend,
+      dailyStudyTimeTrend,
+      totalConceptSeconds,
+      totalProblemSeconds,
+      totalExerciseSeconds,
+      totalStudySeconds,
       recentActivities,
     };
   } catch (error) {
@@ -340,7 +512,10 @@ export async function getTelemetryOverview(userId?: string | null): Promise<Tele
       problemsSolvedCount: 0,
       exercisesCompletedCount: 0,
       activeStreakDays: 0,
+      activeStreakWeeks: 0,
+      isTodayActive: false,
       totalActiveDays: 0,
+      activeDates: [],
       categoryDistribution: {
         auth: 0,
         workspace: 0,
@@ -352,8 +527,94 @@ export async function getTelemetryOverview(userId?: string | null): Promise<Tele
         ai: 0,
       },
       dailyTrend: [],
+      dailyStudyTimeTrend: [],
+      totalConceptSeconds: 0,
+      totalProblemSeconds: 0,
+      totalExerciseSeconds: 0,
+      totalStudySeconds: 0,
       recentActivities: [],
     };
+  }
+}
+
+export interface FormattedDayActivity {
+  id: string;
+  activity_type: string;
+  category: ActivityCategory;
+  title: string;
+  description: string | null;
+  formattedContext: string;
+  created_at: number;
+  metadata: Record<string, any> | null;
+}
+
+/**
+ * Get detailed activity records for a specific day formatted as:
+ * "Activity Name (Exercise/Concept - Subchapter - Workspace)"
+ */
+export async function getActivitiesForDate(
+  userId: string | null | undefined,
+  dateStr: string // YYYY-MM-DD
+): Promise<FormattedDayActivity[]> {
+  try {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const dayStart = Math.floor(new Date(year, month - 1, day, 0, 0, 0).getTime() / 1000);
+    const dayEnd = Math.floor(new Date(year, month - 1, day, 23, 59, 59, 999).getTime() / 1000);
+
+    const conditions = [
+      gte(user_activities.created_at, dayStart),
+      lte(user_activities.created_at, dayEnd),
+    ];
+    if (userId) {
+      conditions.push(eq(user_activities.user_id, userId));
+    }
+
+    const rows = db
+      .select()
+      .from(user_activities)
+      .where(and(...conditions))
+      .orderBy(desc(user_activities.created_at))
+      .all();
+
+    return rows.map((row) => {
+      let meta: Record<string, any> | null = null;
+      if (row.metadata_json) {
+        try {
+          meta = JSON.parse(row.metadata_json);
+        } catch (e) {}
+      }
+
+      // Format contextual label: (Exercise/Concept - Subchapter - Workspace)
+      let typeLabel = 'Activity';
+      if (row.activity_type.includes('concept')) typeLabel = 'Concept';
+      else if (row.activity_type.includes('exercise')) typeLabel = 'Exercise';
+      else if (row.activity_type.includes('problem') || row.activity_type.includes('example')) typeLabel = 'Problem Example';
+      else if (row.category === 'workspace') typeLabel = 'Workspace';
+      else if (row.category === 'auth') typeLabel = 'Auth';
+
+      const subchapter = meta?.subchapterCode || meta?.subchapterTitle || meta?.outlineCode || meta?.code || '';
+      const workspace = meta?.projectName || meta?.projectSlug || 'Main Workspace';
+
+      const contextParts = [typeLabel];
+      if (subchapter) contextParts.push(subchapter);
+      if (workspace) contextParts.push(workspace);
+
+      const formattedContext = `(${contextParts.join(' - ')})`;
+
+      return {
+        id: row.id,
+        activity_type: row.activity_type,
+        category: row.category as ActivityCategory,
+        title: row.title,
+        description: row.description,
+        formattedContext,
+        created_at: row.created_at,
+        metadata: meta,
+      };
+    });
+  } catch (err) {
+    console.error('Error fetching activities for date:', err);
+    return [];
   }
 }
 

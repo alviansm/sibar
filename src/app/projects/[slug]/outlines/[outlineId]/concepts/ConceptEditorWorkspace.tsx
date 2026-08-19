@@ -9,6 +9,7 @@ import { LottieEmptyState } from '@/components/LottieEmptyState';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { cryptoNativeUUID } from '@/lib/utils';
 import { DriveAttachmentUploader } from '@/components/DriveAttachmentUploader';
+import { SubchapterStudyTimer } from '@/components/SubchapterStudyTimer';
 import {
   Save,
   Eye,
@@ -129,6 +130,13 @@ export const ConceptEditorWorkspace: React.FC<ConceptEditorWorkspaceProps> = ({
 
   return (
     <div className="space-y-8">
+      <SubchapterStudyTimer
+        category="concept"
+        activityName="Editing & Formulating Theory Concepts"
+        outlineId={outlineId}
+        position="floating"
+      />
+
       {/* Concept Action Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-4 sm:p-6 shadow-m3-1">
         <div>

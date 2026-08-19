@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, User, Settings, LogOut, ChevronDown, Sparkles } from 'lucide-react';
+import { LayoutDashboard, User, Settings, LogOut, ChevronDown, Sparkles, BarChart2, Flame } from 'lucide-react';
 import { logoutAction } from '@/app/actions/auth';
 
 interface NavbarProps {
@@ -95,6 +95,18 @@ export const Navbar: React.FC<NavbarProps> = ({ username = 'admin', fullName }) 
             <span className="hidden xs:inline">Dashboard</span>
           </Link>
 
+          <Link
+            href="/stats"
+            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all ${
+              pathname === '/stats'
+                ? 'bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-300 font-semibold'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <BarChart2 className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden xs:inline">Statistics</span>
+          </Link>
+
           {/* User Profile Avatar Dropdown Menu */}
           <div className="relative pl-1 sm:pl-2 ml-1 border-l border-slate-200 dark:border-slate-800" ref={dropdownRef}>
             <button
@@ -136,6 +148,19 @@ export const Navbar: React.FC<NavbarProps> = ({ username = 'admin', fullName }) 
                 {/* Dropdown Action Items */}
                 <div className="p-1.5 space-y-0.5">
                   <Link
+                    href="/stats"
+                    onClick={() => setIsDropdownOpen(false)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+                      pathname === '/stats'
+                        ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300'
+                        : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <BarChart2 className="w-4 h-4 text-indigo-500" />
+                    <span>Statistics</span>
+                  </Link>
+
+                  <Link
                     href="/settings"
                     onClick={() => setIsDropdownOpen(false)}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
@@ -144,7 +169,7 @@ export const Navbar: React.FC<NavbarProps> = ({ username = 'admin', fullName }) 
                         : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`}
                   >
-                    <User className="w-4 h-4 text-indigo-500" />
+                    <User className="w-4 h-4 text-slate-500" />
                     <span>Profile &amp; Settings</span>
                   </Link>
                 </div>

@@ -26,9 +26,11 @@ import { AiApiChecker } from '@/components/AiApiChecker';
 import { LottieEmptyState } from '@/components/LottieEmptyState';
 import { DashboardQuote } from '@/components/DashboardQuote';
 import { getMotivationalQuote } from '@/lib/quotes';
-
+import { getTelemetryOverview } from '@/lib/telemetry';
 import { getCurrentUser } from '@/lib/auth';
 import { WorkspaceTracker } from '@/components/WorkspaceTracker';
+import { DashboardStatsCarousel } from '@/components/DashboardStatsCarousel';
+import { StudyIntelligenceCard } from '@/components/StudyIntelligenceCard';
 
 export const revalidate = 0;
 
@@ -42,6 +44,8 @@ export default async function DashboardPage() {
     user?.quoteCategory || 'inspirational'
   );
 
+  // Fetch Telemetry Streak Overview
+  const telemetryOverview = await getTelemetryOverview(user?.id);
 
   // Fetch Telemetry Aggregation Data (Only for active non-deleted items)
   const allAttempts = db
@@ -135,64 +139,17 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Telemetry Metrics Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-          
-          {/* Card 1: Solved Reps */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-m3-1 flex items-center gap-5">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-200/60 dark:border-emerald-800 flex-shrink-0">
-              <Trophy className="w-7 h-7" />
-            </div>
-            <div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Solved Reps</span>
-              <div className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mt-0.5">
-                {totalReps} <span className="text-xs font-normal text-slate-500">reps</span>
-              </div>
-              <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                <span>Clean derivations &amp; solutions</span>
-              </p>
-            </div>
-          </div>
-
-          {/* Card 2: Study Hours */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-m3-1 flex items-center gap-5">
-            <div className="w-14 h-14 rounded-2xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center border border-sky-200/60 dark:border-sky-800 flex-shrink-0">
-              <Timer className="w-7 h-7" />
-            </div>
-            <div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Study Time</span>
-              <div className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mt-0.5 font-mono">
-                {totalStudyTime}
-              </div>
-              <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5 text-sky-500" />
-                <span>Logged practice stopwatch</span>
-              </p>
-            </div>
-          </div>
-
-          {/* Card 3: Clean Solve Rate */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-m3-1 flex items-center gap-5">
-            <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200/60 dark:border-indigo-800 flex-shrink-0">
-              <Target className="w-7 h-7" />
-            </div>
-            <div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Clean Solve Rate</span>
-              <div className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mt-0.5">
-                {cleanSolveRate}%
-              </div>
-              <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                <BarChart2 className="w-3.5 h-3.5 text-indigo-500" />
-                <span>First-attempt solve ratio</span>
-              </p>
-            </div>
-          </div>
-
-        </div>
-
-        {/* Gemini AI API Connectivity & Model Status Checker */}
-        <AiApiChecker />
+        {/* Alternating Telemetry & Streak Carousel */}
+        <DashboardStatsCarousel
+          totalReps={totalReps}
+          totalStudyTime={totalStudyTime}
+          cleanSolveRate={cleanSolveRate}
+          dayStreak={telemetryOverview.activeStreakDays}
+          weekStreak={telemetryOverview.activeStreakWeeks || 0}
+          totalActiveDays={telemetryOverview.totalActiveDays}
+          isTodayActive={telemetryOverview.isTodayActive}
+          dailyStudyTimeTrend={telemetryOverview.dailyStudyTimeTrend}
+        />
 
         {/* Active Projects Grid */}
         <div className="space-y-4">
@@ -284,6 +241,12 @@ export default async function DashboardPage() {
             </div>
           )}
         </div>
+
+        {/* Study Intelligence AI Component */}
+        <StudyIntelligenceCard studentName={displayName} />
+
+        {/* Gemini AI API Connectivity & Model Status Checker (Moved to the bottom) */}
+        <AiApiChecker />
 
       </main>
       <Footer />

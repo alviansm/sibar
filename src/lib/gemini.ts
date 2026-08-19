@@ -703,3 +703,166 @@ Return ONLY a valid JSON object matching this schema (no markdown formatting out
     throw error;
   }
 }
+
+export interface StudyIntelligenceContext {
+  studentName: string;
+  dayStreak: number;
+  weekStreak: number;
+  totalActiveDays: number;
+  isTodayActive: boolean;
+  totalReps: number;
+  totalStudyTime: string;
+  cleanSolveRate: number;
+  projects: Array<{
+    name: string;
+    targetMilestone: string;
+    progressPct: number;
+    masteredSubchapters: number;
+    totalSubchapters: number;
+  }>;
+  recentActivities: Array<{
+    title: string;
+    category: string;
+    activityType: string;
+    description?: string | null;
+    createdAtDate?: string;
+  }>;
+}
+
+export interface StudyIntelligenceData {
+  headline: string;
+  momentumScore: number; // 0 - 100
+  streakInsight: {
+    title: string;
+    description: string;
+    cadenceAssessment: string;
+  };
+  workloadAnalysis: {
+    summary: string;
+    keyHighlights: string[];
+    contentContributionNote: string;
+  };
+  actionableRecommendations: string[];
+  coachClosingMantra: string;
+  generatedAt: number;
+}
+
+export async function generateStudyIntelligenceAI(
+  context: StudyIntelligenceContext,
+  modelName: string = 'gemini-3.6-flash'
+): Promise<StudyIntelligenceData> {
+  const ai = getGeminiClient();
+
+  const prompt = `You are Sibar's "Study Intelligence" AI Coach — engineered for high-performance self-learners, mathematicians, STEM researchers, and scholars.
+
+Here is the student's live telemetry, habit streaks, project mastery, and activity logs:
+
+STUDENT PROFILE & HABITS:
+- Name: ${context.studentName}
+- Current Day Streak: ${context.dayStreak} consecutive days (Today Active: ${context.isTodayActive ? 'Yes' : 'Not yet completed today'})
+- Weekly Streak: ${context.weekStreak} active weeks
+- Lifetime Active Study Days: ${context.totalActiveDays} days
+- Solved Reps: ${context.totalReps} clean derivations/solutions
+- Total Logged Stopwatch Study Time: ${context.totalStudyTime}
+- Clean Solve Ratio (First Attempt Accuracy): ${context.cleanSolveRate}%
+
+ACTIVE STUDY PROJECTS & SYLLABUS PROGRESSION:
+${
+  context.projects.length > 0
+    ? context.projects
+        .map(
+          (p) =>
+            `- ${p.name} (Milestone: ${p.targetMilestone}) — ${p.masteredSubchapters}/${p.totalSubchapters} subchapters mastered (${p.progressPct}%)`
+        )
+        .join('\n')
+    : '- No active study projects configured yet.'
+}
+
+RECENT ACTIVITY STREAM & CONTENT CREATION:
+${
+  context.recentActivities.length > 0
+    ? context.recentActivities
+        .slice(0, 15)
+        .map(
+          (a) =>
+            `- [${a.category.toUpperCase()} / ${a.activityType}] ${a.title} ${a.description ? `— ${a.description}` : ''}`
+        )
+        .join('\n')
+    : '- Initializing study telemetry history.'
+}
+
+INSTRUCTIONS:
+1. Synthesize their streak progression, problem solving accuracy, study time, and content creation (such as created concepts, exercise sets, or syllabus imports).
+2. Adopt an encouraging, sharp, data-driven, and empowering tone (like a world-class cognitive athletic coach). Connect mathematical derivations and STEM study directly to deliberate practice.
+3. Return ONLY a valid JSON object matching the following structure (no markdown fences outside JSON):
+
+{
+  "headline": "Punchy 1-sentence headline capturing their current learning momentum and rhythm",
+  "momentumScore": integer from 0 to 100 representing their learning consistency and rep quality,
+  "streakInsight": {
+    "title": "Short title on their streak health, e.g. 'Strong Daily Consistency' or 'Streak Building Opportunity'",
+    "description": "2-3 sentences evaluating their daily and weekly streak progression.",
+    "cadenceAssessment": "1 sentence on optimal study pacing."
+  },
+  "workloadAnalysis": {
+    "summary": "2-3 sentences analyzing what topics, subchapters, worked examples, and exercises they have been tackling recently.",
+    "keyHighlights": [
+      "Highlight point 1 (e.g. high clean solve rate or mastered topics)",
+      "Highlight point 2 (e.g. content creation or exercise sets)",
+      "Highlight point 3 (e.g. time commitment or milestone tracking)"
+    ],
+    "contentContributionNote": "1 sentence acknowledging their syllabus creation, concept logging, or practice volume."
+  },
+  "actionableRecommendations": [
+    "Specific actionable recommendation 1 for their next study session",
+    "Specific actionable recommendation 2",
+    "Specific actionable recommendation 3"
+  ],
+  "coachClosingMantra": "Inspiring 1-line closing mantra or mental model for high cognitive performance."
+}`;
+
+  try {
+    const { response } = await generateContentWithFallback(
+      ai,
+      modelName || 'gemini-3.6-flash',
+      [{ role: 'user', parts: [{ text: prompt }] }],
+      { responseMimeType: 'application/json' }
+    );
+
+    const responseText = response.text || '';
+    const parsed = JSON.parse(responseText.trim());
+
+    return {
+      headline: parsed.headline || `Solid study momentum on track with ${context.dayStreak}-day streak.`,
+      momentumScore: typeof parsed.momentumScore === 'number' ? Math.min(100, Math.max(0, parsed.momentumScore)) : 85,
+      streakInsight: {
+        title: parsed.streakInsight?.title || `${context.dayStreak}-Day Study Streak Active`,
+        description: parsed.streakInsight?.description || `You have maintained an active study cadence over ${context.dayStreak} days and ${context.weekStreak} weeks.`,
+        cadenceAssessment: parsed.streakInsight?.cadenceAssessment || 'Consistent small daily reps yield compound cognitive mastery.',
+      },
+      workloadAnalysis: {
+        summary: parsed.workloadAnalysis?.summary || 'You are making steady progress through your configured study syllabus tracks.',
+        keyHighlights: Array.isArray(parsed.workloadAnalysis?.keyHighlights) && parsed.workloadAnalysis.keyHighlights.length > 0
+          ? parsed.workloadAnalysis.keyHighlights
+          : [
+              `Logged ${context.totalReps} clean derivation reps`,
+              `${context.cleanSolveRate}% clean first-attempt solve rate`,
+              `Active lifetime study across ${context.totalActiveDays} days`,
+            ],
+        contentContributionNote: parsed.workloadAnalysis?.contentContributionNote || 'Keep enriching your problem sets and concept notes.',
+      },
+      actionableRecommendations: Array.isArray(parsed.actionableRecommendations) && parsed.actionableRecommendations.length > 0
+        ? parsed.actionableRecommendations
+        : [
+            'Complete at least one worked example today to preserve your daily streak.',
+            'Review subchapters with low mastery scores before attempting timed exercises.',
+            'Maintain steady 30-45 minute deliberate practice intervals.',
+          ],
+      coachClosingMantra: parsed.coachClosingMantra || 'Every derivations solved builds permanent cognitive endurance.',
+      generatedAt: Math.floor(Date.now() / 1000),
+    };
+  } catch (err: any) {
+    console.error('Error generating Study Intelligence with Gemini:', err);
+    throw err;
+  }
+}

@@ -17,6 +17,7 @@ import { useToast } from '@/components/Toast';
 import { LottieEmptyState } from '@/components/LottieEmptyState';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { SubchapterStudyTimer } from '@/components/SubchapterStudyTimer';
 import {
   ArrowLeft,
   Plus,
@@ -263,6 +264,15 @@ export const ExampleManagerWorkspace: React.FC<ExampleManagerWorkspaceProps> = (
 
   return (
     <div className="space-y-6">
+      <SubchapterStudyTimer
+        category="problem"
+        activityName="Worked Example Study & Practice"
+        subchapterName={`${subchapterCode} ${subchapterTitle}`}
+        projectName={projectTitle}
+        outlineId={outlineId}
+        position="floating"
+      />
+
       {/* Top Header Breadcrumb & Actions */}
       <Breadcrumb items={breadcrumbs} />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-4 sm:p-6 shadow-m3-1">

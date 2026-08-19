@@ -17,6 +17,7 @@ import { GeminiOCRModal } from './GeminiOCRModal';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { useToast } from '@/components/Toast';
 import { LottieEmptyState } from '@/components/LottieEmptyState';
+import { SubchapterStudyTimer } from '@/components/SubchapterStudyTimer';
 import {
   Plus,
   Trash2,
@@ -321,6 +322,13 @@ export const ProblemManagerWorkspace: React.FC<ProblemManagerWorkspaceProps> = (
 
   return (
     <div className="space-y-8">
+      <SubchapterStudyTimer
+        category="problem"
+        activityName="Subchapter Problem Practice & Curation"
+        outlineId={outlineId}
+        position="floating"
+      />
+
       {/* Workspace Header Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-m3-1">
         <div>
