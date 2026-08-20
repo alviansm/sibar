@@ -61,6 +61,7 @@ export const ConceptEditorWorkspace: React.FC<ConceptEditorWorkspaceProps> = ({
   const [editingItem, setEditingItem] = useState<ConceptItem | null>(null);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
+  const [showPreview, setShowPreview] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [conceptToDeleteId, setConceptToDeleteId] = useState<string | null>(null);
 
@@ -70,6 +71,7 @@ export const ConceptEditorWorkspace: React.FC<ConceptEditorWorkspaceProps> = ({
     setEditingItem({ id: cryptoNativeUUID(), title: '', content: '' });
     setTitle('');
     setContent('');
+    setShowPreview(false);
     setIsEditing(true);
   };
 
@@ -77,6 +79,7 @@ export const ConceptEditorWorkspace: React.FC<ConceptEditorWorkspaceProps> = ({
     setEditingItem(item);
     setTitle(item.title);
     setContent(item.content);
+    setShowPreview(false);
     setIsEditing(true);
   };
 
@@ -125,6 +128,7 @@ export const ConceptEditorWorkspace: React.FC<ConceptEditorWorkspaceProps> = ({
       toast('Concepts Saved', 'Saved concept details with LaTeX math.', 'success');
       setIsEditing(false);
       setEditingItem(null);
+      setShowPreview(false);
     }
   };
 
@@ -175,7 +179,7 @@ export const ConceptEditorWorkspace: React.FC<ConceptEditorWorkspaceProps> = ({
             </button>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
                 Concept Title
@@ -190,16 +194,23 @@ export const ConceptEditorWorkspace: React.FC<ConceptEditorWorkspaceProps> = ({
               />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    Concept Theory, Plots, Diagrams & Formulas
+                    Concept Theory, Plots, Diagrams & Formulas, & Attachment
                   </label>
                 </div>
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              </div>
+
+              {/* Toolbar in one wide line */}
+              <div className="flex flex-wrap items-center justify-between gap-2.5 p-2 bg-slate-50/80 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl">
+                <div className="flex flex-wrap items-center gap-2">
                   <RichContentToolbar
-                    onInsert={(snippet) => setContent((prev) => prev + snippet)}
+                    onInsert={(snippet) => {
+                      setContent((prev) => prev + snippet);
+                      if (showPreview) setShowPreview(false);
+                    }}
                   />
                   <DriveAttachmentUploader
                     entityType="concept"
@@ -212,11 +223,40 @@ export const ConceptEditorWorkspace: React.FC<ConceptEditorWorkspaceProps> = ({
                       } else {
                         setContent((prev) => prev + `\n[📄 ${att.file_name}](${att.web_view_link})\n`);
                       }
+                      if (showPreview) setShowPreview(false);
                     }}
                   />
                 </div>
+
+                {/* Toggle Live Preview Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowPreview(!showPreview)}
+                  className={`flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-xl border text-xs font-semibold transition-all shadow-sm ${
+                    showPreview
+                      ? 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-500 shadow-indigo-600/20'
+                      : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 hover:border-indigo-300'
+                  }`}
+                  title={showPreview ? 'Switch back to editor mode' : 'Display rendered live content preview'}
+                >
+                  {showPreview ? (
+                    <>
+                      <Edit2 className="w-3.5 h-3.5" />
+                      <span>Return to Editing</span>
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                      <span>Display Preview</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Full Width Textarea Editor or Live Content Preview */}
+              {!showPreview ? (
                 <textarea
-                  rows={8}
+                  rows={16}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   onPaste={(e) =>
@@ -228,23 +268,19 @@ export const ConceptEditorWorkspace: React.FC<ConceptEditorWorkspaceProps> = ({
                   }
                   required
                   placeholder="e.g. Definition of Absolute Value:\n$$|x| = \begin{cases} x & x \ge 0 \\ -x & x < 0 \end{cases}\n\n```plot\nfn: abs(x)\nrange: [-5, 5]\n```"
-                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-mono focus:ring-2 focus:ring-indigo-500"
+                  className="w-full p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-mono focus:ring-2 focus:ring-indigo-500 leading-relaxed min-h-[380px] sm:min-h-[420px]"
                 />
-              </div>
-
-              <div className="space-y-2">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>Live Rich Content Preview</span>
-                </label>
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 min-h-[210px] text-xs leading-relaxed text-slate-800 dark:text-slate-200 overflow-y-auto max-h-[500px]">
-                  {content ? (
+              ) : (
+                <div className="w-full min-h-[380px] sm:min-h-[420px] max-h-[650px] p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-indigo-100 dark:border-slate-700 text-xs leading-relaxed text-slate-800 dark:text-slate-200 overflow-y-auto">
+                  {content.trim() ? (
                     <MathRenderer content={content} />
                   ) : (
-                    <span className="text-slate-400 italic">Live math formulas, function plots, diagrams, and images will render here in real-time...</span>
+                    <div className="flex flex-col items-center justify-center py-16 text-slate-400 italic">
+                      <span>No content to preview yet. Switch back to editing to write theory, formulas, diagrams, or paste images.</span>
+                    </div>
                   )}
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
