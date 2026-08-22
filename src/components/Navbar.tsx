@@ -3,8 +3,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, User, Settings, LogOut, ChevronDown, Sparkles, BarChart2, Flame } from 'lucide-react';
+import { LayoutDashboard, User, Settings, LogOut, ChevronDown, Sparkles, BarChart2, Flame, Sun, Moon, Palette, BookOpen } from 'lucide-react';
 import { logoutAction } from '@/app/actions/auth';
+import { useTheme } from '@/components/ThemeProvider';
 
 interface NavbarProps {
   username?: string;
@@ -15,6 +16,7 @@ export const Navbar: React.FC<NavbarProps> = ({ username = 'admin', fullName }) 
   const pathname = usePathname();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { resolvedTheme, toggleTheme } = useTheme();
 
   // Compute initials for the avatar circle
   const getInitials = () => {
@@ -96,6 +98,18 @@ export const Navbar: React.FC<NavbarProps> = ({ username = 'admin', fullName }) 
           </Link>
 
           <Link
+            href="/my-learning"
+            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all ${
+              pathname === '/my-learning' || pathname.startsWith('/projects')
+                ? 'bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-300 font-semibold'
+                : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <BookOpen className="w-4 h-4 flex-shrink-0 text-indigo-500" />
+            <span className="hidden xs:inline">My Learning</span>
+          </Link>
+
+          <Link
             href="/stats"
             className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all ${
               pathname === '/stats'
@@ -106,6 +120,21 @@ export const Navbar: React.FC<NavbarProps> = ({ username = 'admin', fullName }) 
             <BarChart2 className="w-4 h-4 flex-shrink-0" />
             <span className="hidden xs:inline">Statistics</span>
           </Link>
+
+          {/* Quick Theme Toggle Button */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            title={resolvedTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            aria-label="Toggle light or dark theme"
+            className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+          >
+            {resolvedTheme === 'dark' ? (
+              <Sun className="w-4 h-4 text-amber-400 hover:rotate-45 transition-transform" />
+            ) : (
+              <Moon className="w-4 h-4 text-slate-600 hover:-rotate-12 transition-transform" />
+            )}
+          </button>
 
           {/* User Profile Avatar Dropdown Menu */}
           <div className="relative pl-1 sm:pl-2 ml-1 border-l border-slate-200 dark:border-slate-800" ref={dropdownRef}>
@@ -148,6 +177,19 @@ export const Navbar: React.FC<NavbarProps> = ({ username = 'admin', fullName }) 
                 {/* Dropdown Action Items */}
                 <div className="p-1.5 space-y-0.5">
                   <Link
+                    href="/my-learning"
+                    onClick={() => setIsDropdownOpen(false)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+                      pathname === '/my-learning'
+                        ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300'
+                        : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <BookOpen className="w-4 h-4 text-indigo-500" />
+                    <span>My Learning</span>
+                  </Link>
+
+                  <Link
                     href="/stats"
                     onClick={() => setIsDropdownOpen(false)}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
@@ -158,6 +200,19 @@ export const Navbar: React.FC<NavbarProps> = ({ username = 'admin', fullName }) 
                   >
                     <BarChart2 className="w-4 h-4 text-indigo-500" />
                     <span>Statistics</span>
+                  </Link>
+
+                  <Link
+                    href="/settings?tab=appearance"
+                    onClick={() => setIsDropdownOpen(false)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
+                      pathname === '/settings'
+                        ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300'
+                        : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    <Palette className="w-4 h-4 text-purple-500" />
+                    <span>Theme ({resolvedTheme === 'dark' ? 'Dark' : 'Light'})</span>
                   </Link>
 
                   <Link
@@ -173,6 +228,7 @@ export const Navbar: React.FC<NavbarProps> = ({ username = 'admin', fullName }) 
                     <span>Profile &amp; Settings</span>
                   </Link>
                 </div>
+
 
                 {/* Divider */}
                 <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
@@ -197,3 +253,4 @@ export const Navbar: React.FC<NavbarProps> = ({ username = 'admin', fullName }) 
     </header>
   );
 };
+

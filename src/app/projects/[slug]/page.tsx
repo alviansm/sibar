@@ -51,6 +51,15 @@ export default async function ProjectDetailPage(props: ProjectPageProps) {
     notFound();
   }
 
+  // Update last_accessed_at for Last Opened sorting
+  try {
+    db.update(projects)
+      .set({ last_accessed_at: Math.floor(Date.now() / 1000) })
+      .where(eq(projects.id, project.id))
+      .run();
+  } catch (e) {}
+
+
   // 2. Fetch Outlines Tree
   const allOutlines = db
     .select()

@@ -11,6 +11,8 @@ export async function createProjectAction(formData: FormData) {
   const name = formData.get('name') as string;
   const reference_material = formData.get('reference_material') as string;
   const target_milestone = formData.get('target_milestone') as string;
+  const category = (formData.get('category') as string)?.trim() || 'General';
+  const thumbnail_url = (formData.get('thumbnail_url') as string)?.trim() || null;
 
   if (!name || !reference_material || !target_milestone) {
     return { error: 'All fields are required.' };
@@ -27,9 +29,12 @@ export async function createProjectAction(formData: FormData) {
         id,
         name,
         slug: `${slug}-${id.substring(0, 4)}`,
+        category,
+        thumbnail_url,
         reference_material,
         target_milestone,
         status: 'active',
+        last_accessed_at: now,
         created_at: now,
       })
       .run();
@@ -38,11 +43,12 @@ export async function createProjectAction(formData: FormData) {
       activityType: 'project_create',
       category: 'project',
       title: `Created Study Project: ${name}`,
-      description: `Target Milestone: ${target_milestone} | Reference: ${reference_material}`,
-      metadata: { projectId: id, name, slug: `${slug}-${id.substring(0, 4)}` },
+      description: `Category: ${category} | Target Milestone: ${target_milestone} | Reference: ${reference_material}`,
+      metadata: { projectId: id, name, category, slug: `${slug}-${id.substring(0, 4)}` },
     });
 
     revalidatePath('/dashboard');
+    revalidatePath('/my-learning');
     return { success: true, slug: `${slug}-${id.substring(0, 4)}` };
   } catch (err: any) {
     return { error: err.message || 'Failed to create project.' };
@@ -53,16 +59,24 @@ export async function updateProjectAction(id: string, formData: FormData) {
   const name = formData.get('name') as string;
   const reference_material = formData.get('reference_material') as string;
   const target_milestone = formData.get('target_milestone') as string;
+  const category = (formData.get('category') as string)?.trim() || 'General';
+  const thumbnail_url = formData.has('thumbnail_url') ? ((formData.get('thumbnail_url') as string)?.trim() || null) : undefined;
   const status = (formData.get('status') as 'active' | 'paused' | 'completed') || 'active';
 
   try {
+    const updateData: any = {
+      name,
+      reference_material,
+      target_milestone,
+      category,
+      status,
+    };
+    if (thumbnail_url !== undefined) {
+      updateData.thumbnail_url = thumbnail_url;
+    }
+
     db.update(projects)
-      .set({
-        name,
-        reference_material,
-        target_milestone,
-        status,
-      })
+      .set(updateData)
       .where(eq(projects.id, id))
       .run();
 
@@ -72,11 +86,13 @@ export async function updateProjectAction(id: string, formData: FormData) {
         activityType: 'project_update',
         category: 'project',
         title: `Updated Project Settings: ${name || proj.name}`,
-        description: `Status: ${status} | Target: ${target_milestone || proj.target_milestone}`,
-        metadata: { projectId: id, name, status, slug: proj.slug },
+        description: `Category: ${category} | Status: ${status} | Target: ${target_milestone || proj.target_milestone}`,
+        metadata: { projectId: id, name, category, status, slug: proj.slug },
       });
       revalidatePath(`/projects/${proj.slug}`);
+      revalidatePath(`/projects/${proj.slug}/settings`);
       revalidatePath('/dashboard');
+      revalidatePath('/my-learning');
     }
 
     return { success: true };
@@ -84,6 +100,20 @@ export async function updateProjectAction(id: string, formData: FormData) {
     return { error: err.message || 'Failed to update project.' };
   }
 }
+
+export async function touchProjectLastAccessedAction(idOrSlug: string) {
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    db.update(projects)
+      .set({ last_accessed_at: now })
+      .where(idOrSlug.includes('-') ? eq(projects.slug, idOrSlug) : eq(projects.id, idOrSlug))
+      .run();
+    return { success: true };
+  } catch (err) {
+    return { error: 'Failed to touch project' };
+  }
+}
+
 
 export async function createOutlineNodeAction(
   projectId: string,

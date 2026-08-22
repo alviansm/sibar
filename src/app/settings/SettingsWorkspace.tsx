@@ -1,14 +1,17 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { User, ShieldCheck, UserCog, KeyRound, ChevronRight, Quote, HardDrive, Activity } from 'lucide-react';
+import { User, ShieldCheck, UserCog, KeyRound, ChevronRight, Quote, HardDrive, Activity, Palette } from 'lucide-react';
 import { ProfileSettingsForm } from './ProfileSettingsForm';
 import { SecuritySettingsForm } from './SecuritySettingsForm';
 import { QuoteSettingsForm } from './QuoteSettingsForm';
 import { GoogleDriveSettings } from './GoogleDriveSettings';
 import { TelemetrySettingsView } from './TelemetrySettingsView';
+import { AppearanceSettingsForm } from './AppearanceSettingsForm';
 import { useSearchParams } from 'next/navigation';
 import { TelemetryOverviewData } from '@/lib/telemetry';
+
+export type SettingsTab = 'profile' | 'appearance' | 'telemetry' | 'quotes' | 'security';
 
 interface SettingsWorkspaceProps {
   user: {
@@ -21,7 +24,7 @@ interface SettingsWorkspaceProps {
   };
   googleAccounts?: any[];
   initialOverview?: TelemetryOverviewData | null;
-  initialTab?: 'profile' | 'quotes' | 'security' | 'telemetry';
+  initialTab?: SettingsTab;
 }
 
 export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
@@ -31,14 +34,14 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
   initialTab = 'profile',
 }) => {
   const searchParams = useSearchParams();
-  const tabFromQuery = searchParams.get('tab') as 'profile' | 'quotes' | 'security' | 'telemetry' | null;
+  const tabFromQuery = searchParams.get('tab') as SettingsTab | null;
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'quotes' | 'security' | 'telemetry'>(
+  const [activeTab, setActiveTab] = useState<SettingsTab>(
     tabFromQuery || initialTab || 'profile'
   );
 
   useEffect(() => {
-    if (tabFromQuery && ['profile', 'quotes', 'security', 'telemetry'].includes(tabFromQuery)) {
+    if (tabFromQuery && ['profile', 'appearance', 'quotes', 'security', 'telemetry'].includes(tabFromQuery)) {
       setActiveTab(tabFromQuery);
     }
   }, [tabFromQuery]);
@@ -67,6 +70,21 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
               <span>Profile Settings</span>
             </div>
             <ChevronRight className={`w-3.5 h-3.5 opacity-60 hidden md:block ${activeTab === 'profile' ? 'text-white' : ''}`} />
+          </button>
+
+          <button
+            onClick={() => setActiveTab('appearance')}
+            className={`flex-1 md:flex-initial flex items-center justify-between px-3 sm:px-3.5 py-2.5 sm:py-3 rounded-2xl text-xs font-semibold transition-all whitespace-nowrap ${
+              activeTab === 'appearance'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold'
+                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 bg-slate-50 dark:bg-slate-800/40 md:bg-transparent'
+            }`}
+          >
+            <div className="flex items-center gap-2 sm:gap-2.5">
+              <Palette className="w-4 h-4 flex-shrink-0" />
+              <span>Appearance &amp; Theme</span>
+            </div>
+            <ChevronRight className={`w-3.5 h-3.5 opacity-60 hidden md:block ${activeTab === 'appearance' ? 'text-white' : ''}`} />
           </button>
 
           <button
@@ -128,6 +146,12 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                 <span>Profile Settings</span>
               </>
             )}
+            {activeTab === 'appearance' && (
+              <>
+                <Palette className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <span>Appearance &amp; Theme</span>
+              </>
+            )}
             {activeTab === 'telemetry' && (
               <>
                 <Activity className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
@@ -149,6 +173,7 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             {activeTab === 'profile' && 'Manage your public persona, display name, cognitive telemetry preferences, and Google Drive storage.'}
+            {activeTab === 'appearance' && 'Toggle light mode, dark mode, or automatic system appearance synchronization.'}
             {activeTab === 'telemetry' && 'Audit trail and frequency analysis of your study activities, concept completions, and reps.'}
             {activeTab === 'quotes' && 'Configure API Ninjas quotes, refresh interval (hourly/daily/always), and 50 local quotes fallback.'}
             {activeTab === 'security' && 'Update your login password and protect your cognitive training archive.'}
@@ -157,6 +182,7 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
 
         {/* Tab Content Form */}
         {activeTab === 'profile' && <ProfileSettingsForm user={user} googleAccounts={googleAccounts} />}
+        {activeTab === 'appearance' && <AppearanceSettingsForm />}
         {activeTab === 'telemetry' && <TelemetrySettingsView initialOverview={initialOverview} />}
         {activeTab === 'quotes' && <QuoteSettingsForm user={user} />}
         {activeTab === 'security' && <SecuritySettingsForm />}
@@ -166,5 +192,6 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
     </div>
   );
 };
+
 
 

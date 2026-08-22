@@ -17,10 +17,12 @@ import {
   Sparkles,
   BarChart2,
   CheckCircle2,
-  Clock,
   Layers,
 } from 'lucide-react';
 import { NewProjectModal } from './NewProjectModal';
+import { ProjectCard } from '@/components/ProjectCard';
+
+
 
 import { AiApiChecker } from '@/components/AiApiChecker';
 import { LottieEmptyState } from '@/components/LottieEmptyState';
@@ -151,14 +153,27 @@ export default async function DashboardPage() {
           dailyStudyTimeTrend={telemetryOverview.dailyStudyTimeTrend}
         />
 
-        {/* Active Projects Grid */}
+        {/* Active Projects Grid (Max 9 Cards with My Learning Navigation) */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <BookOpen className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
               <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Active Study Projects</h2>
+              <span className="text-xs text-slate-500 font-medium ml-1">
+                ({Math.min(projectStats.length, 9)} of {projectStats.length})
+              </span>
             </div>
-            <span className="text-xs text-slate-500 font-medium">{projectStats.length} Tracks Configured</span>
+
+            <div className="flex items-center gap-3">
+              <Link
+                href="/my-learning"
+                className="px-4 py-2 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-200 dark:hover:border-indigo-800 text-xs font-bold shadow-xs transition-all flex items-center gap-1.5"
+              >
+                <BookOpen className="w-3.5 h-3.5 text-indigo-500" />
+                <span>My Learning</span>
+                <ChevronRight className="w-3.5 h-3.5 opacity-60" />
+              </Link>
+            </div>
           </div>
 
           {projectStats.length === 0 ? (
@@ -168,79 +183,42 @@ export default async function DashboardPage() {
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {projectStats.map((proj) => (
-                <div
+              {projectStats.slice(0, 9).map((proj) => (
+                <ProjectCard
                   key={proj.id}
-                  className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-m3-1 hover:shadow-m3-3 transition-all flex flex-col justify-between group"
-                >
-                  <div className="space-y-4">
-                    
-                    {/* Badge & Title */}
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <span className="inline-block text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 mb-2 border border-slate-200 dark:border-slate-700">
-                          {proj.status}
-                        </span>
-                        <h3 className="text-xl font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                          {proj.name}
-                        </h3>
-                      </div>
-                      <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-sm border border-indigo-200/60 dark:border-indigo-800">
-                        {proj.progressPct}%
-                      </div>
-                    </div>
-
-                    {/* Metadata */}
-                    <div className="space-y-1.5 text-xs text-slate-600 dark:text-slate-400">
-                      <p className="line-clamp-1 font-medium">
-                        <span className="text-slate-400 font-normal">Reference: </span>
-                        {proj.reference_material}
-                      </p>
-                      <p className="line-clamp-1 font-medium text-indigo-600 dark:text-indigo-300">
-                        <span className="text-slate-400 font-normal">Milestone: </span>
-                        {proj.target_milestone}
-                      </p>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className="space-y-1.5 pt-2">
-                      <div className="flex justify-between text-xs font-semibold">
-                        <span className="text-slate-500">Subchapter Mastery</span>
-                        <span className="text-slate-800 dark:text-slate-200">
-                          {proj.masteredSubchapters} / {proj.totalSubchapters} Mastered
-                        </span>
-                      </div>
-                      <div className="w-full h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-indigo-600 rounded-full transition-all duration-500"
-                          style={{ width: `${proj.progressPct}%` }}
-                        ></div>
-                      </div>
-                    </div>
-
-                  </div>
-
-                  {/* Card Action Link */}
-                  <div className="pt-6 mt-6 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                    <Link
-                      href={`/projects/${proj.slug}`}
-                      className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
-                    >
-                      <span>Open Workspace</span>
-                      <ChevronRight className="w-4 h-4" />
-                    </Link>
-                    <Link
-                      href={`/projects/${proj.slug}/settings`}
-                      className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                    >
-                      Taxonomy Settings
-                    </Link>
-                  </div>
-                </div>
+                  project={{
+                    id: proj.id,
+                    name: proj.name,
+                    slug: proj.slug,
+                    category: proj.category || 'General',
+                    thumbnail_url: proj.thumbnail_url || null,
+                    reference_material: proj.reference_material,
+                    target_milestone: proj.target_milestone,
+                    status: proj.status,
+                    created_at: proj.created_at,
+                    last_accessed_at: proj.last_accessed_at || null,
+                    totalSubchapters: proj.totalSubchapters,
+                    masteredSubchapters: proj.masteredSubchapters,
+                    progressPct: proj.progressPct,
+                  }}
+                />
               ))}
             </div>
           )}
+
+          {projectStats.length > 9 && (
+            <div className="pt-2 flex justify-center">
+              <Link
+                href="/my-learning"
+                className="px-6 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors flex items-center gap-2"
+              >
+                <span>View all {projectStats.length} workspaces in My Learning</span>
+                <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
+          )}
         </div>
+
 
         {/* Study Intelligence AI Component */}
         <StudyIntelligenceCard studentName={displayName} />

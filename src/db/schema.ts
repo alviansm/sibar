@@ -19,14 +19,18 @@ export const projects = sqliteTable('projects', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
+  category: text('category').notNull().default('General'),
+  thumbnail_url: text('thumbnail_url'),
   reference_material: text('reference_material').notNull(),
   target_milestone: text('target_milestone').notNull(),
   status: text('status', { enum: ['active', 'paused', 'completed'] })
     .notNull()
     .default('active'),
+  last_accessed_at: integer('last_accessed_at'),
   is_deleted: integer('is_deleted').notNull().default(0),
   created_at: integer('created_at').notNull(),
 });
+
 
 export const outlines = sqliteTable('outlines', {
   id: text('id').primaryKey(),

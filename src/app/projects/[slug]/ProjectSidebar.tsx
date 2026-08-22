@@ -11,6 +11,7 @@ interface ProjectSidebarProps {
     name: string;
     slug: string;
     status: string;
+    category?: string | null;
     reference_material?: string | null;
   };
   chapters: any[];
@@ -36,10 +37,15 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
           {/* Project Info Header Row */}
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800">
                   {project.status}
                 </span>
+                {project.category && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                    {project.category}
+                  </span>
+                )}
                 {project.reference_material && (
                   <span className="text-[11px] text-slate-400 truncate max-w-[160px]">
                     {project.reference_material}
@@ -105,7 +111,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
                 onClick={() => setIsMobileExpanded(false)}
                 className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
               >
-                <Edit3 className="w-3 h-3" />
+                <Edit3 className="w-3.5 h-3.5" />
                 <span>Edit Taxonomy</span>
               </Link>
             </div>
@@ -146,9 +152,16 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
       <aside className="hidden md:flex w-80 bg-white dark:bg-slate-900 border-r border-slate-200/80 dark:border-slate-800 p-6 flex-col justify-between flex-shrink-0 md:sticky md:top-0 md:h-screen md:max-h-screen overflow-hidden">
         {/* Project Header Summary (Fixed Top) */}
         <div className="space-y-2 pb-4 border-b border-slate-200/80 dark:border-slate-800 flex-shrink-0">
-          <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800">
-            {project.status}
-          </span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800">
+              {project.status}
+            </span>
+            {project.category && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                {project.category}
+              </span>
+            )}
+          </div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
             {project.name}
           </h2>
@@ -158,6 +171,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
             </p>
           )}
         </div>
+
 
         {/* Scrollable Taxonomy Tree Container */}
         <div className="flex-1 overflow-y-auto my-4 pr-1.5 space-y-3 custom-scrollbar">

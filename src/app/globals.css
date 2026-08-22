@@ -6,6 +6,13 @@
 :root {
   --background: #f8fafc;
   --foreground: #0f172a;
+  color-scheme: light;
+}
+
+.dark {
+  --background: #020617;
+  --foreground: #f8fafc;
+  color-scheme: dark;
 }
 
 body {
@@ -31,6 +38,14 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
 
 /* KaTeX custom sizing tweaks */
 .katex-display {

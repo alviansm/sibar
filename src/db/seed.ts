@@ -110,9 +110,12 @@ async function seed() {
         id: projectId,
         name: 'Calculus',
         slug: 'calculus-varberg',
+        category: 'Mathematics',
+        thumbnail_url: '/images/public-examination-preparation-concept.jpg',
         reference_material: 'Calculus 9th Ed. - Dale Varberg, Edwin Purcell, Steve Rigdon',
         target_milestone: 'Drone Dynamics & Grad School Prep',
         status: 'active',
+        last_accessed_at: now,
         created_at: now,
       })
       .run();

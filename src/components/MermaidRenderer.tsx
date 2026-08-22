@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import mermaid from 'mermaid';
 import { cryptoNativeUUID } from '@/lib/utils';
 import { AlertCircle, Copy, Check } from 'lucide-react';
+import { useTheme } from '@/components/ThemeProvider';
 
 interface MermaidRendererProps {
   chart: string;
@@ -11,6 +12,7 @@ interface MermaidRendererProps {
 }
 
 export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, className = '' }) => {
+  const { resolvedTheme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
   const [svgContent, setSvgContent] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
@@ -18,7 +20,7 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, classNa
 
   useEffect(() => {
     let isMounted = true;
-    const isDark = typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+    const isDark = resolvedTheme === 'dark';
 
     try {
       mermaid.initialize({
@@ -76,7 +78,8 @@ export const MermaidRenderer: React.FC<MermaidRendererProps> = ({ chart, classNa
     return () => {
       isMounted = false;
     };
-  }, [chart]);
+  }, [chart, resolvedTheme]);
+
 
   const handleCopy = () => {
     navigator.clipboard.writeText(chart);
