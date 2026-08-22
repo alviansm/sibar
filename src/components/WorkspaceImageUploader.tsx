@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload, X, Image as ImageIcon, Loader2, AlertCircle, Check } from 'lucide-react';
 import { DEFAULT_WORKSPACE_THUMBNAIL } from '@/lib/constants';
 
@@ -10,6 +10,17 @@ interface WorkspaceImageUploaderProps {
   label?: string;
 }
 
+const isPlaceholderUrl = (url?: string | null) => {
+  if (!url) return true;
+  const trimmed = url.trim();
+  return (
+    trimmed === '' ||
+    trimmed === DEFAULT_WORKSPACE_THUMBNAIL ||
+    trimmed === '/images/public-examination-preparation-concept.jpg' ||
+    trimmed === '/public-examination-preparation-concept.jpg'
+  );
+};
+
 export const WorkspaceImageUploader: React.FC<WorkspaceImageUploaderProps> = ({
   value,
   onChange,
@@ -17,10 +28,20 @@ export const WorkspaceImageUploader: React.FC<WorkspaceImageUploaderProps> = ({
 }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [displaySrc, setDisplaySrc] = useState<string>(
+    isPlaceholderUrl(value) ? DEFAULT_WORKSPACE_THUMBNAIL : (value || DEFAULT_WORKSPACE_THUMBNAIL)
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const currentImage = value || DEFAULT_WORKSPACE_THUMBNAIL;
-  const isCustom = Boolean(value && value !== DEFAULT_WORKSPACE_THUMBNAIL);
+  const isCustom = !isPlaceholderUrl(value);
+
+  useEffect(() => {
+    if (isPlaceholderUrl(value)) {
+      setDisplaySrc(DEFAULT_WORKSPACE_THUMBNAIL);
+    } else if (value) {
+      setDisplaySrc(value);
+    }
+  }, [value]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -55,10 +76,11 @@ export const WorkspaceImageUploader: React.FC<WorkspaceImageUploaderProps> = ({
       });
 
       const data = await res.json();
-      if (!res.ok || !data.success) {
+      if (!res.ok || !data.success || !data.url) {
         throw new Error(data.error || 'Failed to upload image.');
       }
 
+      setDisplaySrc(data.url);
       onChange(data.url);
     } catch (err: any) {
       setError(err?.message || 'Error uploading image.');
@@ -71,8 +93,13 @@ export const WorkspaceImageUploader: React.FC<WorkspaceImageUploaderProps> = ({
   const handleResetToDefault = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    setDisplaySrc(DEFAULT_WORKSPACE_THUMBNAIL);
     onChange(null);
     setError(null);
+  };
+
+  const handleImageError = () => {
+    setDisplaySrc(DEFAULT_WORKSPACE_THUMBNAIL);
   };
 
   return (
@@ -85,16 +112,16 @@ export const WorkspaceImageUploader: React.FC<WorkspaceImageUploaderProps> = ({
         {/* Thumbnail Preview Area */}
         <div className="relative w-full sm:w-40 h-24 rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 flex-shrink-0 group">
           <img
-            src={currentImage}
+            src={displaySrc}
             alt="Workspace thumbnail"
+            onError={handleImageError}
             className="w-full h-full object-cover"
           />
-          {isCustom && (
+          {isCustom ? (
             <span className="absolute top-1.5 left-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-600 text-white shadow">
               Custom
             </span>
-          )}
-          {!isCustom && (
+          ) : (
             <span className="absolute top-1.5 left-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-800/80 text-slate-200 shadow">
               Default Placeholder
             </span>

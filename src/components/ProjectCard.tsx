@@ -63,8 +63,12 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
             src={thumbnailSrc}
             alt={project.name}
             loading="lazy"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = DEFAULT_WORKSPACE_THUMBNAIL;
+            }}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
+
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-black/30 pointer-events-none" />
 
           {/* Floating Category Badge (Top Left) */}

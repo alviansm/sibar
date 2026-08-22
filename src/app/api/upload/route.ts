@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
+import { getUploadsDirectory } from '@/lib/storage';
 
 export async function POST(req: NextRequest) {
   try {
@@ -32,8 +33,8 @@ export async function POST(req: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Ensure uploads directory exists in public folder
-    const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
+    // Ensure uploads directory exists
+    const uploadsDir = getUploadsDirectory();
     await mkdir(uploadsDir, { recursive: true });
 
     // Generate unique safe file name
