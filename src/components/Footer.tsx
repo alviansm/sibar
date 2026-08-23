@@ -15,7 +15,7 @@ export const Footer: React.FC = () => {
           <div className="flex items-center gap-2">
             <span className="font-semibold text-slate-800 dark:text-slate-200 text-sm tracking-tight">Sibar</span>
             <span className="text-slate-400 dark:text-slate-600">·</span>
-            <span className="text-slate-500 dark:text-slate-400 font-medium">Sinau Bareng Archive</span>
+            <span className="text-slate-500 dark:text-slate-400 font-medium">Cognitive Telemetry Archive</span>
           </div>
         </div>
 

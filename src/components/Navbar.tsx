@@ -79,7 +79,7 @@ export const Navbar: React.FC<NavbarProps> = ({ username = 'admin', fullName }) 
                 v1.0
               </span>
             </div>
-            <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium hidden sm:block">Sinau Bareng Archive</p>
+            <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium hidden sm:block">Cognitive Telemetry Archive</p>
           </div>
         </Link>
 
