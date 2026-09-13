@@ -19,8 +19,8 @@ import { useToast } from '@/components/Toast';
 import { LottieEmptyState } from '@/components/LottieEmptyState';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { buildBreadcrumbs } from '@/lib/breadcrumbs';
+import { AVAILABLE_GEMINI_MODELS } from '@/lib/gemini-models';
 import { SubchapterStudyTimer } from '@/components/SubchapterStudyTimer';
-import { AVAILABLE_GEMINI_MODELS } from '@/lib/gemini';
 import {
   ArrowLeft,
   Plus,
@@ -88,11 +88,10 @@ export const ExerciseEditorWorkspace: React.FC<ExerciseEditorWorkspaceProps> = (
     exerciseSet: { id: exerciseId, title: initialExerciseTitle },
   });
 
-  // Exercise metadata (editable)
-  const [metaTitle, setMetaTitle] = useState(initialExerciseTitle);
-  const [metaDescription, setMetaDescription] = useState(initialExerciseDescription);
-  const [metaPassingGrade, setMetaPassingGrade] = useState(initialPassingGrade);
-  const [metaIsTimed, setMetaIsTimed] = useState(initialIsTimed);
+  const [metaTitle, setMetaTitle] = useState(initialExerciseTitle || '');
+  const [metaDescription, setMetaDescription] = useState(initialExerciseDescription || '');
+  const [metaPassingGrade, setMetaPassingGrade] = useState(initialPassingGrade ?? 70);
+  const [metaIsTimed, setMetaIsTimed] = useState(Boolean(initialIsTimed));
   const [isSavingMeta, setIsSavingMeta] = useState(false);
   const [metaExpanded, setMetaExpanded] = useState(false);
 
@@ -546,10 +545,10 @@ export const ExerciseEditorWorkspace: React.FC<ExerciseEditorWorkspaceProps> = (
               <Link
                 href={`/projects/${slug}/outlines/${outlineId}/editor?type=problem&exerciseId=${exerciseId}&id=new`}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 text-xs font-semibold transition-all shadow-sm group"
-                title="Open in dedicated Google Docs-like Wordgard document editor"
+                title="Open in dedicated Google Docs document editor"
               >
                 <FileText className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-                <span>Open in Document Editor (Wordgard)</span>
+                <span>Open in Document Editor (Docs)</span>
                 <ExternalLink className="w-3 h-3 opacity-60" />
               </Link>
 
@@ -1023,10 +1022,10 @@ export const ExerciseEditorWorkspace: React.FC<ExerciseEditorWorkspaceProps> = (
                       <Link
                         href={`/projects/${slug}/outlines/${outlineId}/editor?type=problem&exerciseId=${exerciseId}&id=${prob.id}`}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 text-xs font-semibold transition-all shadow-sm group"
-                        title="Open in dedicated Google Docs-like Wordgard document editor"
+                        title="Open in dedicated Google Docs document editor"
                       >
                         <FileText className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-                        <span>Open in Document Editor (Wordgard)</span>
+                        <span>Open in Document Editor (Docs)</span>
                         <ExternalLink className="w-3 h-3 opacity-60" />
                       </Link>
 
@@ -1466,7 +1465,7 @@ export const ExerciseEditorWorkspace: React.FC<ExerciseEditorWorkspaceProps> = (
                       #{idx + 1}
                     </span>
                     <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 font-mono">
-                      {prob.problem_type.replace('_', ' ')}
+                      {(prob.problem_type || 'question').replace(/_/g, ' ')}
                     </span>
                     <span className="text-xs text-amber-500 font-bold font-mono">
                       Diff {prob.difficulty}/5

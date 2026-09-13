@@ -325,10 +325,10 @@ export const ExampleManagerWorkspace: React.FC<ExampleManagerWorkspaceProps> = (
               <Link
                 href={`/projects/${slug}/outlines/${outlineId}/editor?type=example&id=${editingId || 'new'}`}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 text-xs font-semibold transition-all shadow-sm group"
-                title="Open in dedicated Google Docs-like Wordgard document editor"
+                title="Open in dedicated Google Docs document editor"
               >
                 <FileText className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-                <span>Open in Document Editor (Wordgard)</span>
+                <span>Open in Document Editor (Docs)</span>
                 <ExternalLink className="w-3 h-3 opacity-60" />
               </Link>
 

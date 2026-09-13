@@ -183,6 +183,7 @@ export const QuoteSettingsForm: React.FC<QuoteSettingsFormProps> = ({ user }) =>
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-slate-900 transition-all appearance-none cursor-pointer"
               >
+                <option value="all">All Topics (Recommended / Free Tier)</option>
                 <option value="inspirational">Inspirational &amp; Grit</option>
                 <option value="learning">Learning &amp; Study Reps</option>
                 <option value="education">Education &amp; Mastery</option>
@@ -191,7 +192,7 @@ export const QuoteSettingsForm: React.FC<QuoteSettingsFormProps> = ({ user }) =>
               </select>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Select category parameter passed to API Ninjas or filter key.
+              API Ninjas free accounts serve quotes across all topics; premium tiers support category filtering.
             </p>
           </div>
 

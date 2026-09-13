@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 import { MermaidRenderer } from './MermaidRenderer';
@@ -8,6 +8,8 @@ import { FunctionPlotRenderer } from './FunctionPlotRenderer';
 import { ImageLightboxModal } from './ImageLightboxModal';
 import { DocumentPreviewModal } from './DocumentPreviewModal';
 import { Maximize2, FileText, ExternalLink, Eye, Paperclip } from 'lucide-react';
+
+const HTML_TAG_REGEX = /<\/?(?:p|h[1-6]|blockquote|ul|ol|li|table|thead|tbody|tr|th|td|div|span|strong|em|b|i|u|s|del|strike|code|pre|a|img|hr|br)\b[^>]*>/i;
 
 interface MathRendererProps {
   content: string;
@@ -21,10 +23,15 @@ interface BlockSegment {
 }
 
 export const MathRenderer: React.FC<MathRendererProps> = ({ content, className = '' }) => {
+  const [isMounted, setIsMounted] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [lightboxAlt, setLightboxAlt] = useState<string>('');
   const [docPreviewSrc, setDocPreviewSrc] = useState<string | null>(null);
   const [docPreviewName, setDocPreviewName] = useState<string>('');
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   if (!content) return null;
 
@@ -86,13 +93,13 @@ export const MathRenderer: React.FC<MathRendererProps> = ({ content, className =
 
   // Helper to parse and render semantic HTML tags (produced by Wordgard) with KaTeX math
   const renderDomNode = (node: ChildNode, key: string): React.ReactNode => {
-    if (node.nodeType === Node.TEXT_NODE) {
+    if (node.nodeType === 3 /* Node.TEXT_NODE */) {
       const text = node.textContent || '';
       if (!text) return null;
       return <React.Fragment key={key}>{renderInlineMathAndFormatting(text, key)}</React.Fragment>;
     }
 
-    if (node.nodeType === Node.ELEMENT_NODE) {
+    if (node.nodeType === 1 /* Node.ELEMENT_NODE */) {
       const el = node as HTMLElement;
       const tag = el.tagName.toLowerCase();
       const children = Array.from(el.childNodes).map((child, idx) =>
@@ -197,8 +204,15 @@ export const MathRenderer: React.FC<MathRendererProps> = ({ content, className =
   };
 
   const renderHtmlContent = (htmlStr: string, keyPrefix: string): React.ReactNode => {
-    if (typeof window === 'undefined') {
-      return <div key={keyPrefix} dangerouslySetInnerHTML={{ __html: htmlStr }} />;
+    // If running on server or before client mount has completed, render safe SSR HTML to prevent hydration mismatch
+    if (!isMounted || typeof window === 'undefined' || typeof DOMParser === 'undefined') {
+      return (
+        <div
+          key={keyPrefix}
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: htmlStr }}
+        />
+      );
     }
 
     try {
@@ -208,14 +222,20 @@ export const MathRenderer: React.FC<MathRendererProps> = ({ content, className =
         renderDomNode(child, `${keyPrefix}-html-${idx}`)
       );
     } catch {
-      return <div key={keyPrefix} dangerouslySetInnerHTML={{ __html: htmlStr }} />;
+      return (
+        <div
+          key={keyPrefix}
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{ __html: htmlStr }}
+        />
+      );
     }
   };
 
   // 2. Helper to render text with Markdown images (![alt](url)), markdown links ([label](url)), and inline math
   const renderRichText = (text: string, keyPrefix: string) => {
-    // If text contains HTML tags (e.g. from Wordgard semantic editor)
-    if (/<[a-z][\s\S]*>/i.test(text)) {
+    // If text contains genuine HTML tags (e.g. from Wordgard semantic editor)
+    if (HTML_TAG_REGEX.test(text)) {
       return [renderHtmlContent(text, keyPrefix)];
     }
 

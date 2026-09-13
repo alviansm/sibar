@@ -208,10 +208,10 @@ export const ConceptEditorWorkspace: React.FC<ConceptEditorWorkspaceProps> = ({
               <Link
                 href={`/projects/${slug}/outlines/${outlineId}/editor?type=concept&id=${editingItem?.id || 'new'}`}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 text-xs font-semibold transition-all shadow-sm group"
-                title="Open in dedicated Google Docs-like Wordgard document editor"
+                title="Open in dedicated Google Docs document editor"
               >
                 <FileText className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-                <span>Open in Document Editor (Wordgard)</span>
+                <span>Open in Document Editor (Docs)</span>
                 <ExternalLink className="w-3 h-3 opacity-60" />
               </Link>
 

@@ -65,6 +65,10 @@ export function getLocalFallbackQuote(seedStr?: string): MotivationalQuote {
   };
 }
 
+// Track whether the configured API Ninjas key has access to category filtering
+// (API Ninjas free tier does not support the category parameter and returns HTTP 400).
+let categorySupported: boolean | null = null;
+
 /**
  * Fetches quote from API Ninjas with fallback to 50 local quotes.
  */
@@ -80,21 +84,40 @@ export async function getMotivationalQuote(
     return getLocalFallbackQuote(seed);
   }
 
+  const trimmedKey = apiKey.trim();
+  const wantCategory = Boolean(category && category !== 'all');
+  const shouldSendCategoryParam = wantCategory && categorySupported !== false;
+
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-    const validCategory = category || 'inspirational';
-    const response = await fetch(
-      `https://api.api-ninjas.com/v1/quotes?category=${encodeURIComponent(validCategory)}`,
-      {
+    let apiUrl = shouldSendCategoryParam
+      ? `https://api.api-ninjas.com/v1/quotes?category=${encodeURIComponent(category)}`
+      : 'https://api.api-ninjas.com/v1/quotes';
+
+    let response = await fetch(apiUrl, {
+      headers: {
+        'X-Api-Key': trimmedKey,
+      },
+      signal: controller.signal,
+      next: { revalidate: interval === 'daily' ? 86400 : interval === 'hourly' ? 3600 : 0 },
+    });
+
+    // If category parameter returns 400 (API Ninjas free tier error: "category parameter is for premium subscribers only"),
+    // gracefully mark category as unsupported and fetch a random quote from API Ninjas without query parameters.
+    if (!response.ok && shouldSendCategoryParam && response.status === 400) {
+      categorySupported = false;
+      response = await fetch('https://api.api-ninjas.com/v1/quotes', {
         headers: {
-          'X-Api-Key': apiKey.trim(),
+          'X-Api-Key': trimmedKey,
         },
         signal: controller.signal,
         next: { revalidate: interval === 'daily' ? 86400 : interval === 'hourly' ? 3600 : 0 },
-      }
-    );
+      });
+    } else if (response.ok && shouldSendCategoryParam) {
+      categorySupported = true;
+    }
 
     clearTimeout(timeoutId);
 
@@ -109,7 +132,7 @@ export async function getMotivationalQuote(
       return {
         quote: data[0].quote,
         author: data[0].author || 'Unknown',
-        category: data[0].category || validCategory,
+        category: data[0].category || category,
         source: 'api_ninjas',
         refreshedAt: Date.now(),
       };

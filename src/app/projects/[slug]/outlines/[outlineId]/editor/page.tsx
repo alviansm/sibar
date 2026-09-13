@@ -4,7 +4,7 @@ import { outlines, projects, problems } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth';
 import { redirect, notFound } from 'next/navigation';
-import { WordgardWorkspace } from './WordgardWorkspace';
+import { ProseMirrorWorkspace } from './ProseMirrorWorkspace';
 import { WorkspaceTracker } from '@/components/WorkspaceTracker';
 import { cryptoNativeUUID } from '@/lib/utils';
 
@@ -164,8 +164,8 @@ export default async function DedicatedEditorPage(props: EditorPageProps) {
   return (
     <>
       <WorkspaceTracker
-        workspaceType="wordgard_document_editor"
-        title={`Editing ${documentName} in Wordgard`}
+        workspaceType="prosemirror_document_editor"
+        title={`Editing ${documentName} in Document Editor`}
         description={`Dedicated document focus canvas: [${outline.code}] ${outline.title} | ${project.name}`}
         metadata={{
           slug: project.slug,
@@ -175,7 +175,7 @@ export default async function DedicatedEditorPage(props: EditorPageProps) {
           exerciseId,
         }}
       />
-      <WordgardWorkspace
+      <ProseMirrorWorkspace
         outlineId={outline.id}
         slug={project.slug}
         projectTitle={project.name}

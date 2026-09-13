@@ -19,7 +19,7 @@ import {
   Compass,
   Trash2,
 } from 'lucide-react';
-import { StudyIntelligenceData } from '@/lib/gemini';
+import type { StudyIntelligenceData } from '@/lib/gemini';
 import { Lottie } from 'lottie-react';
 import rocketAnimation from '../../public/animations/rocket-fly.json';
 import loveAnimation from '../../public/animations/love.json';

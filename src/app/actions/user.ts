@@ -108,10 +108,10 @@ export async function updateQuoteSettingsAction(prevState: any, formData: FormDa
     const category = (formData.get('quoteCategory') as string || 'inspirational').toLowerCase();
 
     const validIntervals = ['hourly', 'daily', 'always'];
-    const validCategories = ['inspirational', 'education', 'learning', 'success', 'knowledge'];
+    const validCategories = ['all', 'inspirational', 'education', 'learning', 'success', 'knowledge'];
 
     const targetInterval = validIntervals.includes(refreshInterval) ? refreshInterval : 'hourly';
-    const targetCategory = validCategories.includes(category) ? category : 'inspirational';
+    const targetCategory = validCategories.includes(category) ? category : 'all';
 
     db.update(users)
       .set({

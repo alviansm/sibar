@@ -106,11 +106,11 @@ export default async function DedicatedExercisePage(props: ExercisePageProps) {
           subchapterCode={outline.code}
           subchapterTitle={outline.title}
           parentChapter={parentChapter ? { id: parentChapter.id, code: parentChapter.code, title: parentChapter.title } : null}
-          exerciseTitle={exerciseSet.title}
-          exerciseDescription={exerciseSet.description}
-          passingGrade={exerciseSet.passing_grade}
+          exerciseTitle={exerciseSet.title || ''}
+          exerciseDescription={exerciseSet.description || ''}
+          passingGrade={exerciseSet.passing_grade ?? 70}
           isTimed={exerciseSet.is_timed === 1}
-          initialProblems={exerciseProblems}
+          initialProblems={exerciseProblems || []}
         />
       </main>
       <Footer />
