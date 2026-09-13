@@ -10,6 +10,7 @@ import { ConfirmModal } from '@/components/ConfirmModal';
 import { cryptoNativeUUID } from '@/lib/utils';
 import { DriveAttachmentUploader } from '@/components/DriveAttachmentUploader';
 import { SubchapterStudyTimer } from '@/components/SubchapterStudyTimer';
+import { GeminiConceptOCRModal } from './GeminiConceptOCRModal';
 import {
   Save,
   Eye,
@@ -66,6 +67,28 @@ export const ConceptEditorWorkspace: React.FC<ConceptEditorWorkspaceProps> = ({
   const [conceptToDeleteId, setConceptToDeleteId] = useState<string | null>(null);
 
   const activeConcepts = concepts.filter((c) => !c.is_deleted);
+
+  const handleImportConcepts = async (newItems: Array<{ title: string; content: string }>) => {
+    const formatted: ConceptItem[] = newItems.map((item) => ({
+      id: cryptoNativeUUID(),
+      title: item.title,
+      content: item.content,
+      status: 'unread',
+      is_deleted: 0,
+    }));
+
+    const updated = [...concepts, ...formatted];
+    setConcepts(updated);
+    setIsPending(true);
+    const res = await saveConceptsListAction(outlineId, updated);
+    setIsPending(false);
+
+    if (res.error) {
+      toast('Save Failed', res.error, 'error');
+    } else {
+      toast('Concepts Digitized & Saved', `Successfully added ${formatted.length} concept card${formatted.length === 1 ? '' : 's'} to subchapter.`, 'success');
+    }
+  };
 
   const handleOpenAdd = () => {
     setEditingItem({ id: cryptoNativeUUID(), title: '', content: '' });
@@ -153,13 +176,19 @@ export const ConceptEditorWorkspace: React.FC<ConceptEditorWorkspaceProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={handleOpenAdd}
-          className="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/30 flex items-center justify-center gap-2 transition-all m3-ripple self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add New Concept Card</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
+          <GeminiConceptOCRModal
+            onImportConcepts={handleImportConcepts}
+            label="Digitize Concepts from Photo"
+          />
+          <button
+            onClick={handleOpenAdd}
+            className="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/30 flex items-center justify-center gap-2 transition-all m3-ripple"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add New Concept Card</span>
+          </button>
+        </div>
       </div>
 
       {/* Editor Modal / Drawer */}

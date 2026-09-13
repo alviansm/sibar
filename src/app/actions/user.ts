@@ -144,3 +144,42 @@ export async function updateQuoteSettingsAction(prevState: any, formData: FormDa
   }
 }
 
+export async function updateAiModelAction(modelName: string) {
+  try {
+    const session = await getSession();
+    if (!session?.userId) {
+      return { error: 'Unauthorized session. Please log in again.' };
+    }
+
+    const cleanModel = (modelName || '').trim();
+    if (!cleanModel) {
+      return { error: 'Please select a valid Gemini AI model.' };
+    }
+
+    db.update(users)
+      .set({ ai_model: cleanModel })
+      .where(eq(users.id, session.userId))
+      .run();
+
+    await logActivity({
+      userId: session.userId,
+      activityType: 'settings_update',
+      category: 'settings',
+      title: 'Updated Preferred Gemini AI Model',
+      description: `Default AI model set to: ${cleanModel}`,
+      metadata: { ai_model: cleanModel },
+    });
+
+    revalidatePath('/settings');
+    revalidatePath('/dashboard');
+
+    return {
+      success: true,
+      message: `Gemini model updated to ${cleanModel}`,
+      aiModel: cleanModel,
+    };
+  } catch (err: any) {
+    return { error: err.message || 'Failed to update AI model preference.' };
+  }
+}
+

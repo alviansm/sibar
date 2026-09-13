@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useActionState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { loginAction, getCaptchaAction } from '@/app/actions/auth';
 import { BrainCircuit, KeyRound, User, Sparkles, ArrowRight, ShieldCheck, Lock } from 'lucide-react';
 import { CaptchaField, CaptchaData } from '@/components/CaptchaField';
@@ -12,6 +13,8 @@ interface LoginFormProps {
 
 export function LoginForm({ initialCaptcha }: LoginFormProps) {
   const [state, formAction, isPending] = useActionState(loginAction, null);
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams?.get('redirect') || '/dashboard';
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between relative overflow-hidden">
@@ -50,6 +53,7 @@ export function LoginForm({ initialCaptcha }: LoginFormProps) {
           )}
 
           <form action={formAction} className="space-y-5">
+            <input type="hidden" name="redirect_to" value={redirectTo} />
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
                 Username

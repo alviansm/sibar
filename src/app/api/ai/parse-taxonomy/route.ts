@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { parseTaxonomyImages } from '@/lib/gemini';
-import { getSession } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
-  if (!session) {
+  const user = await getCurrentUser();
+  if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -19,7 +19,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const taxonomyResult = await parseTaxonomyImages(images, Boolean(generateProblems), modelName);
+    const effectiveModel = modelName || user.aiModel || 'gemini-2.5-flash';
+
+    const taxonomyResult = await parseTaxonomyImages(images, Boolean(generateProblems), effectiveModel);
 
     if (!taxonomyResult.is_valid_syllabus) {
       return NextResponse.json(

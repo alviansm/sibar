@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { importTaxonomyAction } from '@/app/actions/projects';
 import { useToast } from '@/components/Toast';
-import { AVAILABLE_GEMINI_MODELS } from '@/lib/gemini';
-import { Sparkles, Upload, X, Loader2, Image as ImageIcon, CheckSquare, Square, Cpu, Trash2 } from 'lucide-react';
+import { Sparkles, Upload, X, Loader2, Image as ImageIcon, CheckSquare, Square, Cpu, Trash2, ArrowRight } from 'lucide-react';
 
 interface PictureToTaxonomyModalProps {
   projectId: string;
@@ -18,33 +18,22 @@ const compressImage = (file: File): Promise<{ base64: string; mimeType: string }
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const maxWidth = 1600;
         let width = img.width;
         let height = img.height;
-        const MAX_DIM = 1600;
 
-        if (width > MAX_DIM || height > MAX_DIM) {
-          if (width > height) {
-            height = Math.round((height * MAX_DIM) / width);
-            width = MAX_DIM;
-          } else {
-            width = Math.round((width * MAX_DIM) / height);
-            height = MAX_DIM;
-          }
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
         }
 
         canvas.width = width;
         canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
-          resolve({ base64: compressedBase64, mimeType: 'image/jpeg' });
-        } else {
-          resolve({ base64: e.target?.result as string, mimeType: file.type || 'image/png' });
-        }
-      };
-      img.onerror = () => {
-        resolve({ base64: e.target?.result as string, mimeType: file.type || 'image/png' });
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        const base64 = canvas.toDataURL('image/jpeg', 0.85);
+        resolve({ base64, mimeType: 'image/jpeg' });
       };
       img.src = e.target?.result as string;
     };
@@ -61,7 +50,6 @@ export const PictureToTaxonomyModal: React.FC<PictureToTaxonomyModalProps> = ({ 
   }, []);
   const [images, setImages] = useState<{ base64: string; mimeType: string }[]>([]);
   const [generateProblems, setGenerateProblems] = useState(false);
-  const [selectedModel, setSelectedModel] = useState('gemini-3.6-flash');
   const [loading, setLoading] = useState(false);
 
   const { toast } = useToast();
@@ -92,11 +80,11 @@ export const PictureToTaxonomyModal: React.FC<PictureToTaxonomyModalProps> = ({ 
     setLoading(true);
 
     try {
-      // 1. Send image(s) and selected model to AI parsing API
+      // 1. Send image(s) to AI parsing API (uses user's configured model from settings)
       const res = await fetch('/api/ai/parse-taxonomy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images, generateProblems, modelName: selectedModel }),
+        body: JSON.stringify({ images, generateProblems }),
       });
 
       const json = await res.json();
@@ -177,24 +165,26 @@ export const PictureToTaxonomyModal: React.FC<PictureToTaxonomyModalProps> = ({ 
               </p>
             </div>
 
-            {/* AI Model Selection */}
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center gap-1.5">
-                <Cpu className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                <span>Select Gemini Model</span>
-              </label>
-              <select
-                value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
-                disabled={loading}
-                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+            {/* AI Model Indicator */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200/60 dark:border-indigo-800 flex-shrink-0">
+                  <Cpu className="w-3.5 h-3.5" />
+                </div>
+                <div className="text-xs">
+                  <span className="text-slate-600 dark:text-slate-300 font-medium">
+                    Digitizing with AI model configured in <strong className="text-indigo-600 dark:text-indigo-400 font-semibold">Settings</strong>
+                  </span>
+                </div>
+              </div>
+              <Link
+                href="/settings?tab=ai"
+                target="_blank"
+                className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 self-start sm:self-auto"
               >
-                {AVAILABLE_GEMINI_MODELS.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
+                <span>Change Model</span>
+                <ArrowRight className="w-3 h-3" />
+              </Link>
             </div>
 
             {/* Image Uploader & Thumbnails */}

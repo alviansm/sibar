@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { parseProblemSetImages } from '@/lib/gemini';
+import { parseConceptsFromImages } from '@/lib/gemini';
 import { getCurrentUser } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { images, targetProblemType, modelName, userInstructions } = body;
+    const { images, modelName, userInstructions } = body;
 
     if (!images || !Array.isArray(images) || images.length === 0) {
       return NextResponse.json(
@@ -21,17 +21,16 @@ export async function POST(request: NextRequest) {
 
     const effectiveModel = modelName || user.aiModel || 'gemini-2.5-flash';
 
-    const result = await parseProblemSetImages(
+    const result = await parseConceptsFromImages(
       images,
-      targetProblemType || 'auto',
       effectiveModel,
       userInstructions
     );
 
-    if (!result.is_valid_problems) {
+    if (!result.is_valid_concept) {
       return NextResponse.json(
         {
-          error: result.error_message || 'The uploaded image does not contain clear problem set exercises.',
+          error: result.error_message || 'The uploaded photo does not appear to contain readable theory or concepts.',
         },
         { status: 422 }
       );
@@ -39,13 +38,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: result.problems,
-      rationale: result.selection_rationale || null,
+      data: result.concepts,
+      usedModel: effectiveModel,
     });
   } catch (error: any) {
-    console.error('Error in /api/ai/parse-problem-set:', error);
+    console.error('Error in /api/ai/parse-concept:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to process problem set image.' },
+      { error: error.message || 'Failed to parse concept images.' },
       { status: 500 }
     );
   }

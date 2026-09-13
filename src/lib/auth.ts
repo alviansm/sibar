@@ -1,5 +1,5 @@
 import { SignJWT, jwtVerify } from 'jose';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -54,6 +54,7 @@ export async function getCurrentUser() {
       fullName: users.full_name,
       quoteRefreshInterval: users.quote_refresh_interval,
       quoteCategory: users.quote_category,
+      aiModel: users.ai_model,
       createdAt: users.created_at,
     })
     .from(users)
@@ -66,9 +67,20 @@ export async function getCurrentUser() {
 
 export async function setSessionCookie(token: string) {
   const cookieStore = await cookies();
+  let isHttps = process.env.NEXT_PUBLIC_APP_URL?.startsWith('https://') || false;
+  try {
+    const headerStore = await headers();
+    const proto = headerStore.get('x-forwarded-proto') || headerStore.get('x-forwarded-ssl');
+    if (proto === 'https' || proto === 'on') {
+      isHttps = true;
+    }
+  } catch {
+    // Fall back to NEXT_PUBLIC_APP_URL check
+  }
+
   cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isHttps,
     sameSite: 'lax',
     path: '/',
     maxAge: 7 * 24 * 60 * 60,

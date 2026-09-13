@@ -1,17 +1,18 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { User, ShieldCheck, UserCog, KeyRound, ChevronRight, Quote, HardDrive, Activity, Palette } from 'lucide-react';
+import { User, ShieldCheck, UserCog, KeyRound, ChevronRight, Quote, HardDrive, Activity, Palette, Cpu } from 'lucide-react';
 import { ProfileSettingsForm } from './ProfileSettingsForm';
 import { SecuritySettingsForm } from './SecuritySettingsForm';
 import { QuoteSettingsForm } from './QuoteSettingsForm';
 import { GoogleDriveSettings } from './GoogleDriveSettings';
 import { TelemetrySettingsView } from './TelemetrySettingsView';
 import { AppearanceSettingsForm } from './AppearanceSettingsForm';
+import { AiSettingsForm } from './AiSettingsForm';
 import { useSearchParams } from 'next/navigation';
 import { TelemetryOverviewData } from '@/lib/telemetry';
 
-export type SettingsTab = 'profile' | 'appearance' | 'telemetry' | 'quotes' | 'security';
+export type SettingsTab = 'profile' | 'appearance' | 'telemetry' | 'quotes' | 'security' | 'ai';
 
 interface SettingsWorkspaceProps {
   user: {
@@ -20,6 +21,7 @@ interface SettingsWorkspaceProps {
     fullName?: string | null;
     quoteRefreshInterval?: string | null;
     quoteCategory?: string | null;
+    aiModel?: string | null;
     createdAt?: number;
   };
   googleAccounts?: any[];
@@ -41,7 +43,7 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
   );
 
   useEffect(() => {
-    if (tabFromQuery && ['profile', 'appearance', 'quotes', 'security', 'telemetry'].includes(tabFromQuery)) {
+    if (tabFromQuery && ['profile', 'appearance', 'quotes', 'security', 'telemetry', 'ai'].includes(tabFromQuery)) {
       setActiveTab(tabFromQuery);
     }
   }, [tabFromQuery]);
@@ -103,6 +105,21 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
           </button>
 
           <button
+            onClick={() => setActiveTab('ai')}
+            className={`flex-1 md:flex-initial flex items-center justify-between px-3 sm:px-3.5 py-2.5 sm:py-3 rounded-2xl text-xs font-semibold transition-all whitespace-nowrap ${
+              activeTab === 'ai'
+                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold'
+                : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 bg-slate-50 dark:bg-slate-800/40 md:bg-transparent'
+            }`}
+          >
+            <div className="flex items-center gap-2 sm:gap-2.5">
+              <Cpu className="w-4 h-4 flex-shrink-0" />
+              <span>Gemini AI &amp; Models</span>
+            </div>
+            <ChevronRight className={`w-3.5 h-3.5 opacity-60 hidden md:block ${activeTab === 'ai' ? 'text-white' : ''}`} />
+          </button>
+
+          <button
             onClick={() => setActiveTab('quotes')}
             className={`flex-1 md:flex-initial flex items-center justify-between px-3 sm:px-3.5 py-2.5 sm:py-3 rounded-2xl text-xs font-semibold transition-all whitespace-nowrap ${
               activeTab === 'quotes'
@@ -158,6 +175,12 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
                 <span>Activity &amp; Telemetry Insights</span>
               </>
             )}
+            {activeTab === 'ai' && (
+              <>
+                <Cpu className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <span>Gemini AI Engine &amp; Models</span>
+              </>
+            )}
             {activeTab === 'quotes' && (
               <>
                 <Quote className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
@@ -175,6 +198,7 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
             {activeTab === 'profile' && 'Manage your public persona, display name, cognitive telemetry preferences, and Google Drive storage.'}
             {activeTab === 'appearance' && 'Toggle light mode, dark mode, or automatic system appearance synchronization.'}
             {activeTab === 'telemetry' && 'Audit trail and frequency analysis of your study activities, concept completions, and reps.'}
+            {activeTab === 'ai' && 'Choose your default Google Gemini model for photo digitizing and check live AI API connectivity.'}
             {activeTab === 'quotes' && 'Configure API Ninjas quotes, refresh interval (hourly/daily/always), and 50 local quotes fallback.'}
             {activeTab === 'security' && 'Update your login password and protect your cognitive training archive.'}
           </p>
@@ -184,6 +208,7 @@ export const SettingsWorkspace: React.FC<SettingsWorkspaceProps> = ({
         {activeTab === 'profile' && <ProfileSettingsForm user={user} googleAccounts={googleAccounts} />}
         {activeTab === 'appearance' && <AppearanceSettingsForm />}
         {activeTab === 'telemetry' && <TelemetrySettingsView initialOverview={initialOverview} />}
+        {activeTab === 'ai' && <AiSettingsForm initialModel={user.aiModel || 'gemini-2.5-flash'} />}
         {activeTab === 'quotes' && <QuoteSettingsForm user={user} />}
         {activeTab === 'security' && <SecuritySettingsForm />}
 

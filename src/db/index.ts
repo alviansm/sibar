@@ -127,6 +127,9 @@ function ensureTablesExist() {
   try {
     sqlite.exec(`ALTER TABLE users ADD COLUMN quote_category TEXT NOT NULL DEFAULT 'inspirational'`);
   } catch (e) {}
+  try {
+    sqlite.exec(`ALTER TABLE users ADD COLUMN ai_model TEXT NOT NULL DEFAULT 'gemini-2.5-flash'`);
+  } catch (e) {}
 
   // New columns for three-category problem system
   try {

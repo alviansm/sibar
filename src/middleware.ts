@@ -6,7 +6,14 @@ const SECRET_KEY = new TextEncoder().encode(
   process.env.SESSION_SECRET || process.env.JWT_SECRET || 'sibar-super-secret-jwt-key-2026-math-strava-telemetry'
 );
 
-const PROTECTED_ROUTES = ['/dashboard', '/projects', '/session'];
+const PROTECTED_ROUTES = [
+  '/dashboard',
+  '/projects',
+  '/session',
+  '/settings',
+  '/stats',
+  '/my-learning',
+];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

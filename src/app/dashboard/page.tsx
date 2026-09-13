@@ -7,6 +7,7 @@ import { Footer } from '@/components/Footer';
 import { getSession } from '@/lib/auth';
 import { formatSecondsToHHMMSS } from '@/lib/utils';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import {
   Trophy,
   Timer,
@@ -38,7 +39,10 @@ export const revalidate = 0;
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
-  const displayName = user?.fullName || user?.username || 'Scholar';
+  if (!user) {
+    redirect('/login');
+  }
+  const displayName = user.fullName || user.username || 'Scholar';
 
   // Fetch initial motivational quote based on user preference
   const initialQuote = await getMotivationalQuote(

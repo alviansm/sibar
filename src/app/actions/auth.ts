@@ -109,7 +109,9 @@ export async function loginAction(prevState: any, formData: FormData) {
     metadata: { username: user.username, ip: clientIp },
   });
 
-  redirect('/dashboard');
+  const redirectTo = (formData.get('redirect_to') as string) || '/dashboard';
+  const target = redirectTo.startsWith('/') && !redirectTo.startsWith('//') ? redirectTo : '/dashboard';
+  redirect(target);
 }
 
 export async function logoutAction() {

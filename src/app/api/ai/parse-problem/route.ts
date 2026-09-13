@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { parseProblemImage } from '@/lib/gemini';
-import { getSession } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
-  if (!session) {
+  const user = await getCurrentUser();
+  if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     let imageBase64 = '';
     let mimeType = 'image/png';
 
-    let modelName = 'gemini-3.6-flash';
+    let modelName = user.aiModel || 'gemini-2.5-flash';
 
     if (contentType.includes('application/json')) {
       const body = await request.json();

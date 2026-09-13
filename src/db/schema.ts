@@ -11,6 +11,7 @@ export const users = sqliteTable('users', {
     .notNull()
     .default('hourly'),
   quote_category: text('quote_category').notNull().default('inspirational'),
+  ai_model: text('ai_model').notNull().default('gemini-2.5-flash'),
   created_at: integer('created_at').notNull(),
 });
 

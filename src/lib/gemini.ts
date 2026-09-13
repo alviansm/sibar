@@ -51,10 +51,91 @@ export interface AIGradeFeedback {
   suggestions: string;
 }
 
-export const AVAILABLE_GEMINI_MODELS = [
-  { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash (Fast & Recommended)' },
-  { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro (High Reasoning)' },
+export interface GeminiModelInfo {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+export const FALLBACK_GEMINI_MODELS: GeminiModelInfo[] = [
+  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Fast & Recommended)' },
+  { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Deep Reasoning & Complex STEM)' },
+  { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash (Next-Gen Fast)' },
+  { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro (Frontier Reasoning)' },
 ];
+
+export const AVAILABLE_GEMINI_MODELS = FALLBACK_GEMINI_MODELS;
+
+let cachedGeminiModels: GeminiModelInfo[] | null = null;
+let lastCacheTimestamp = 0;
+const CACHE_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
+
+export async function fetchAvailableGeminiModels(forceRefresh = false): Promise<GeminiModelInfo[]> {
+  const now = Date.now();
+  if (!forceRefresh && cachedGeminiModels && (now - lastCacheTimestamp < CACHE_EXPIRY_MS)) {
+    return cachedGeminiModels;
+  }
+
+  try {
+    const ai = getGeminiClient();
+    const modelListResponse = await ai.models.list();
+    const discovered: GeminiModelInfo[] = [];
+
+    for await (const m of modelListResponse) {
+      const rawId = m.name ? m.name.replace(/^models\//, '') : '';
+      if (!rawId) continue;
+
+      // Filter: only models supporting content generation
+      const supportedActions = m.supportedActions || [];
+      if (!supportedActions.includes('generateContent')) {
+        continue;
+      }
+
+      // Filter out non-general text/multimodal models (embeddings, tts, robotics, music, etc.)
+      const lower = rawId.toLowerCase();
+      if (
+        lower.includes('embedding') ||
+        lower.includes('aqa') ||
+        lower.includes('robotics') ||
+        lower.includes('transcribe') ||
+        lower.includes('imagen') ||
+        lower.includes('veo') ||
+        lower.includes('audio') ||
+        lower.includes('tts') ||
+        lower.includes('lyria') ||
+        lower.includes('music')
+      ) {
+        continue;
+      }
+
+      const displayName = m.displayName || rawId;
+      discovered.push({
+        id: rawId,
+        name: displayName,
+        description: m.description,
+      });
+    }
+
+    if (discovered.length > 0) {
+      // Sort models logically: flash models first, then pro, then others
+      discovered.sort((a, b) => {
+        const aIsFlash = a.id.includes('flash');
+        const bIsFlash = b.id.includes('flash');
+        if (aIsFlash && !bIsFlash) return -1;
+        if (!aIsFlash && bIsFlash) return 1;
+        return a.id.localeCompare(b.id);
+      });
+
+      cachedGeminiModels = discovered;
+      lastCacheTimestamp = now;
+      return cachedGeminiModels;
+    }
+  } catch (err) {
+    console.warn('Could not dynamically fetch Gemini models from API, using fallback models:', err);
+  }
+
+  return FALLBACK_GEMINI_MODELS;
+}
 
 function getGeminiClient() {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -72,7 +153,8 @@ async function generateContentWithFallback(
 ) {
   const fallbackModels = [
     primaryModel,
-    'gemini-3.6-flash',
+    'gemini-2.5-flash',
+    'gemini-3.8-flash',
     'gemini-3.1-pro-preview',
   ].filter((v, i, a) => Boolean(v) && a.indexOf(v) === i);
 
@@ -864,5 +946,117 @@ INSTRUCTIONS:
   } catch (err: any) {
     console.error('Error generating Study Intelligence with Gemini:', err);
     throw err;
+  }
+}
+
+export interface ParsedConceptItem {
+  title: string;
+  content: string;
+}
+
+export interface ParsedConceptsResult {
+  is_valid_concept: boolean;
+  error_message: string | null;
+  concepts: ParsedConceptItem[];
+}
+
+export async function parseConceptsFromImages(
+  images: { base64: string; mimeType?: string }[],
+  modelName: string = 'gemini-2.5-flash',
+  userInstructions?: string
+): Promise<ParsedConceptsResult> {
+  const ai = getGeminiClient();
+
+  const imageParts = images.map((img) => ({
+    inlineData: {
+      data: img.base64.replace(/^data:image\/\w+;base64,/, ''),
+      mimeType: img.mimeType || 'image/png',
+    },
+  }));
+
+  const prompt = `You are an expert STEM Theory, Concept & Formula Digitizer AI.
+Examine the provided textbook, lecture note, or academic paper image(s) containing mathematical or scientific theoretical concepts, theorems, definitions, or formulas.
+
+FIRST: Check if the image contains educational concepts, theorems, definitions, formulas, or academic theory.
+- If the image contains completely unrelated content (e.g. random animals, personal selfies, receipts), set "is_valid_concept": false with explanation in "error_message".
+- If valid, set "is_valid_concept": true, set "error_message": null, and extract structured concept cards.
+
+${
+  userInstructions && userInstructions.trim().length > 0
+    ? `ADDITIONAL USER SPECIFIC INSTRUCTIONS:
+"${userInstructions.trim()}"
+Follow these instructions strictly (e.g. focus on specific theorems, summarize deeply, or format in a particular way).`
+    : ''
+}
+
+For EACH identified concept, theorem, definition, or key formula rule:
+1. Set "title": concise descriptive title of the concept (e.g. "Order Properties of Real Numbers", "Cauchy-Schwarz Inequality", or "First Law of Thermodynamics").
+2. Set "content": rich markdown string containing comprehensive theoretical explanation, formal definitions, proofs or derivations, and LaTeX equations.
+   - Use $...$ for inline math and $$...$$ for display math formulas.
+   - If the theory discusses Cartesian function curves or geometric plots, embed interactive \`\`\`plot code blocks:
+     \`\`\`plot
+     fn: <expression, e.g. x^2 - 4 or sin(x)>
+     range: [<xMin>, <xMax>]
+     yDomain: [<yMin>, <yMax>]
+     points: [[x1, y1, "Label 1"], [x2, y2, "Label 2"]]
+     grid: true
+     title: <Title>
+     \`\`\`
+   - If the concept illustrates structures, state transitions, hierarchies, or flowcharts, embed \`\`\`mermaid blocks.
+
+Return ONLY valid JSON matching this schema:
+{
+  "is_valid_concept": boolean,
+  "error_message": string | null,
+  "concepts": [
+    {
+      "title": "Concept or Theorem Title",
+      "content": "Detailed markdown explanation with clean LaTeX math ($...$ and $$...$$)"
+    }
+  ]
+}`;
+
+  try {
+    const { response } = await generateContentWithFallback(
+      ai,
+      modelName || 'gemini-2.5-flash',
+      [
+        {
+          role: 'user',
+          parts: [{ text: prompt }, ...imageParts],
+        },
+      ],
+      { responseMimeType: 'application/json' }
+    );
+
+    const responseText = response.text || '';
+    const parsed = JSON.parse(responseText.trim());
+
+    if (!parsed.is_valid_concept) {
+      return {
+        is_valid_concept: false,
+        error_message: parsed.error_message || 'The image does not contain recognizable theory or concept material.',
+        concepts: [],
+      };
+    }
+
+    const rawConcepts: ParsedConceptItem[] = Array.isArray(parsed.concepts) ? parsed.concepts : [];
+    const concepts = rawConcepts.map((c) => ({
+      title: (c.title || 'Untitled Concept').trim(),
+      content: (c.content || '').trim(),
+    })).filter((c) => c.title.length > 0 && c.content.length > 0);
+
+    return {
+      is_valid_concept: true,
+      error_message: null,
+      concepts,
+    };
+  } catch (error: any) {
+    console.error(`Error parsing concepts from images with Gemini (${modelName}):`, error);
+    return {
+      is_valid_concept: false,
+      error_message: error.message || 'Failed to digitize concept image(s).',
+      concepts: [],
+    };
   }
 }
