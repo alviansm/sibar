@@ -29,7 +29,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-katex": "^3.0.1",
-    "tailwind-merge": "^2.5.5"
+    "tailwind-merge": "^2.5.5",
+    "wordgard": "^0.5.2"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

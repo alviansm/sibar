@@ -84,8 +84,141 @@ export const MathRenderer: React.FC<MathRendererProps> = ({ content, className =
     );
   };
 
+  // Helper to parse and render semantic HTML tags (produced by Wordgard) with KaTeX math
+  const renderDomNode = (node: ChildNode, key: string): React.ReactNode => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent || '';
+      if (!text) return null;
+      return <React.Fragment key={key}>{renderInlineMathAndFormatting(text, key)}</React.Fragment>;
+    }
+
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as HTMLElement;
+      const tag = el.tagName.toLowerCase();
+      const children = Array.from(el.childNodes).map((child, idx) =>
+        renderDomNode(child, `${key}-${idx}`)
+      );
+
+      switch (tag) {
+        case 'h1':
+          return <h1 key={key} className="text-2xl font-bold text-slate-900 dark:text-white mt-5 mb-2.5 tracking-tight">{children}</h1>;
+        case 'h2':
+          return <h2 key={key} className="text-xl font-bold text-slate-900 dark:text-white mt-4 mb-2 tracking-tight">{children}</h2>;
+        case 'h3':
+          return <h3 key={key} className="text-lg font-bold text-slate-900 dark:text-white mt-3.5 mb-1.5">{children}</h3>;
+        case 'h4':
+        case 'h5':
+        case 'h6':
+          return <h4 key={key} className="text-base font-semibold text-slate-900 dark:text-white mt-2.5 mb-1">{children}</h4>;
+        case 'p':
+          return <p key={key} className="mb-2.5 leading-relaxed text-slate-800 dark:text-slate-200">{children}</p>;
+        case 'strong':
+        case 'b':
+          return <strong key={key} className="font-bold text-slate-900 dark:text-white">{children}</strong>;
+        case 'em':
+        case 'i':
+          return <em key={key} className="italic">{children}</em>;
+        case 'u':
+          return <u key={key} className="underline underline-offset-2">{children}</u>;
+        case 's':
+        case 'del':
+        case 'strike':
+          return <s key={key} className="line-through text-slate-400">{children}</s>;
+        case 'blockquote':
+          return (
+            <blockquote key={key} className="border-l-4 border-indigo-500 pl-4 py-1.5 my-3 bg-indigo-50/50 dark:bg-indigo-950/20 text-slate-700 dark:text-slate-300 italic rounded-r-xl">
+              {children}
+            </blockquote>
+          );
+        case 'ul':
+          return <ul key={key} className="list-disc list-inside space-y-1 my-2.5 text-slate-800 dark:text-slate-200">{children}</ul>;
+        case 'ol':
+          return <ol key={key} className="list-decimal list-inside space-y-1 my-2.5 text-slate-800 dark:text-slate-200">{children}</ol>;
+        case 'li':
+          return <li key={key} className="leading-relaxed">{children}</li>;
+        case 'table':
+          return (
+            <div key={key} className="overflow-x-auto my-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+              <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800 text-xs">
+                {children}
+              </table>
+            </div>
+          );
+        case 'thead':
+          return <thead key={key} className="bg-slate-100 dark:bg-slate-800/80 font-bold">{children}</thead>;
+        case 'tbody':
+          return <tbody key={key} className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900/40">{children}</tbody>;
+        case 'tr':
+          return <tr key={key} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">{children}</tr>;
+        case 'th':
+          return <th key={key} className="px-3.5 py-2.5 text-left text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">{children}</th>;
+        case 'td':
+          return <td key={key} className="px-3.5 py-2 text-xs text-slate-700 dark:text-slate-300">{children}</td>;
+        case 'code':
+          return <code key={key} className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 font-mono text-xs">{children}</code>;
+        case 'pre':
+          return (
+            <pre key={key} className="my-3 p-3.5 rounded-xl bg-slate-900 text-slate-100 font-mono text-xs overflow-x-auto border border-slate-800">
+              {children}
+            </pre>
+          );
+        case 'a':
+          const href = el.getAttribute('href') || '#';
+          return (
+            <a key={key} href={href} target="_blank" rel="noopener noreferrer" className="text-indigo-600 dark:text-indigo-400 font-semibold underline underline-offset-2 hover:text-indigo-500 inline-flex items-center gap-0.5">
+              {children}
+            </a>
+          );
+        case 'img':
+          const src = el.getAttribute('src') || '';
+          const alt = el.getAttribute('alt') || 'Image';
+          return (
+            <span
+              key={key}
+              className="group relative my-3 inline-block max-w-full overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900 cursor-pointer"
+              onClick={() => {
+                setLightboxSrc(src);
+                setLightboxAlt(alt);
+              }}
+            >
+              <img src={src} alt={alt} loading="lazy" className="max-h-96 max-w-full object-contain rounded-2xl transition-transform duration-200 group-hover:scale-[1.01]" />
+            </span>
+          );
+        case 'hr':
+          return <hr key={key} className="my-4 border-slate-200 dark:border-slate-800" />;
+        case 'br':
+          return <br key={key} />;
+        default:
+          return <div key={key} className="my-1">{children}</div>;
+      }
+    }
+
+    return null;
+  };
+
+  const renderHtmlContent = (htmlStr: string, keyPrefix: string): React.ReactNode => {
+    if (typeof window === 'undefined') {
+      return <div key={keyPrefix} dangerouslySetInnerHTML={{ __html: htmlStr }} />;
+    }
+
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(htmlStr, 'text/html');
+      return Array.from(doc.body.childNodes).map((child, idx) =>
+        renderDomNode(child, `${keyPrefix}-html-${idx}`)
+      );
+    } catch {
+      return <div key={keyPrefix} dangerouslySetInnerHTML={{ __html: htmlStr }} />;
+    }
+  };
+
   // 2. Helper to render text with Markdown images (![alt](url)), markdown links ([label](url)), and inline math
   const renderRichText = (text: string, keyPrefix: string) => {
+    // If text contains HTML tags (e.g. from Wordgard semantic editor)
+    if (/<[a-z][\s\S]*>/i.test(text)) {
+      return [renderHtmlContent(text, keyPrefix)];
+    }
+
     // Regex matching both images (![alt](url)) and links ([label](url))
     const mediaAndLinkRegex = /(!)?\[([^\]]*)\]\(([^)]+)\)/g;
     let currentIdx = 0;

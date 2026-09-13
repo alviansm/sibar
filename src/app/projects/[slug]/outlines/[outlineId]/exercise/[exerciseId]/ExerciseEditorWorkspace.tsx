@@ -44,6 +44,8 @@ import {
   LineChart,
   Wand2,
   RotateCcw,
+  FileText,
+  ExternalLink,
 } from 'lucide-react';
 
 interface ExerciseEditorWorkspaceProps {
@@ -540,7 +542,17 @@ export const ExerciseEditorWorkspace: React.FC<ExerciseEditorWorkspaceProps> = (
               <Sparkles className="w-5 h-5 text-indigo-600" />
               <span>Add New Exercise Question</span>
             </h3>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Link
+                href={`/projects/${slug}/outlines/${outlineId}/editor?type=problem&exerciseId=${exerciseId}&id=new`}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 text-xs font-semibold transition-all shadow-sm group"
+                title="Open in dedicated Google Docs-like Wordgard document editor"
+              >
+                <FileText className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                <span>Open in Document Editor (Wordgard)</span>
+                <ExternalLink className="w-3 h-3 opacity-60" />
+              </Link>
+
               <button
                 type="button"
                 onClick={() => setIsAiAssistOpen(!isAiAssistOpen)}
@@ -1007,7 +1019,17 @@ export const ExerciseEditorWorkspace: React.FC<ExerciseEditorWorkspaceProps> = (
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Link
+                        href={`/projects/${slug}/outlines/${outlineId}/editor?type=problem&exerciseId=${exerciseId}&id=${prob.id}`}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 text-xs font-semibold transition-all shadow-sm group"
+                        title="Open in dedicated Google Docs-like Wordgard document editor"
+                      >
+                        <FileText className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
+                        <span>Open in Document Editor (Wordgard)</span>
+                        <ExternalLink className="w-3 h-3 opacity-60" />
+                      </Link>
+
                       <button
                         type="button"
                         onClick={() => setIsAiAssistOpen(!isAiAssistOpen)}

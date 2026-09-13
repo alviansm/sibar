@@ -357,6 +357,57 @@ export async function saveConceptsListAction(outlineId: string, concepts: any[])
   }
 }
 
+export async function saveSingleConceptAction(
+  outlineId: string,
+  concept: { id: string; title: string; content: string }
+) {
+  try {
+    const node = db.select().from(outlines).where(eq(outlines.id, outlineId)).get();
+    if (!node) return { error: 'Outline node not found' };
+
+    let concepts: any[] = [];
+    if (node.concepts_json) {
+      try {
+        const parsed = JSON.parse(node.concepts_json);
+        if (Array.isArray(parsed)) concepts = parsed;
+      } catch (e) {}
+    }
+
+    const existingIdx = concepts.findIndex((c: any) => c.id === concept.id);
+    if (existingIdx >= 0) {
+      concepts[existingIdx] = {
+        ...concepts[existingIdx],
+        title: concept.title,
+        content: concept.content,
+      };
+    } else {
+      concepts.push({
+        id: concept.id,
+        title: concept.title,
+        content: concept.content,
+        status: 'unread',
+        is_deleted: 0,
+      });
+    }
+
+    db.update(outlines)
+      .set({ concepts_json: JSON.stringify(concepts) })
+      .where(eq(outlines.id, outlineId))
+      .run();
+
+    const proj = db.select().from(projects).where(eq(projects.id, node.project_id)).get();
+    if (proj) {
+      revalidatePath(`/projects/${proj.slug}`);
+      revalidatePath(`/projects/${proj.slug}/outlines/${outlineId}/concepts`);
+      revalidatePath(`/projects/${proj.slug}/outlines/${outlineId}/concepts/${concept.id}`);
+    }
+
+    return { success: true, conceptId: concept.id };
+  } catch (err: any) {
+    return { error: err.message || 'Failed to save concept note.' };
+  }
+}
+
 export async function toggleConceptStatusAction(outlineId: string, conceptId: string) {
   try {
     const node = db.select().from(outlines).where(eq(outlines.id, outlineId)).get();
